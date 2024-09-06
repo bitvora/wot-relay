@@ -219,7 +219,7 @@ func appendPubkey(pubkey string) {
 }
 
 func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
 
 	archivePool = nostr.NewSimplePool(ctx)
@@ -229,7 +229,7 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 		trustNetworkCopy := make([]string, len(trustNetwork))
 		copy(trustNetworkCopy, trustNetwork)
 		mu.Unlock()
-		ctxTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
+		ctxTimeout, cancel := context.WithTimeout(ctx, 9*time.Minute)
 		// Create a new context with timeout for each iteration of the loop
 
 		filters := []nostr.Filter{{
@@ -264,6 +264,6 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 		}
 		cancel()
 
-		fmt.Println("archiveTrustedNotes: finished one cycle, will restart in 1 minute")
+		fmt.Println("archiveTrustedNotes: finished one cycle, will restart in 10 minutes")
 	}
 }
