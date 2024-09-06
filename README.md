@@ -91,7 +91,32 @@ sudo systemctl start wot-relay
 sudo systemctl enable wot-relay
 ```
 
-### 6. Access the relay
+### 6. Start the Project with Docker Compose (optional)
+
+To start the project using Docker Compose, follow these steps:
+
+1. Ensure Docker and Docker Compose are installed on your system.
+2. Navigate to the project directory.
+3. Edit the `docker-compose.yml` file to update the environment variables as needed:
+
+    ```yaml
+    environment:
+        RELAY_NAME: "utxo WoT relay"
+        RELAY_PUBKEY: "YOURPUBKEY"
+        RELAY_DESCRIPTION: "Only notes in utxo WoT"
+        DB_PATH: "./db"
+    ```
+
+4. Run the following command:
+
+    ```sh
+    docker-compose up --build
+    ```
+
+This will build the Docker image and start the `wot-relay` service as defined in the `docker-compose.yml` file. The application will be accessible on port 3334.
+
+
+### 7. Access the relay
 
 Once everything is set up, the relay will be running on `localhost:3334`.
 
