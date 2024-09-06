@@ -1,6 +1,6 @@
 # WOT Relay
 
-WOT Relay is a Nostr relay specialized for managing a web of trust based on trusted public keys. This relay is designed to run on localhost, with events filtered by a defined trust network.
+WOT Relay is a Nostr relay that saves all the notes that people you follow, and people they follow are posting.
 
 ## Prerequisites
 
