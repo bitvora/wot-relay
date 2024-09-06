@@ -219,18 +219,17 @@ func appendPubkey(pubkey string) {
 }
 
 func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Minute)
+	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
 	archivePool = nostr.NewSimplePool(ctx)
 
 	for range ticker.C {
+		since := nostr.Timestamp(time.Now().Unix())
 		mu.Lock()
 		trustNetworkCopy := make([]string, len(trustNetwork))
 		copy(trustNetworkCopy, trustNetwork)
 		mu.Unlock()
-		ctxTimeout, cancel := context.WithTimeout(ctx, 9*time.Minute)
-		// Create a new context with timeout for each iteration of the loop
 
 		filters := []nostr.Filter{{
 			Kinds: []int{
@@ -246,10 +245,11 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 				nostr.KindZap,
 				nostr.KindTextNote,
 			},
+			Since: &since,
 		}}
 
-		// Iterate over events from the pool and archive trusted notes
-		for ev := range archivePool.SubManyEose(ctxTimeout, relays, filters) {
+		timeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
+		for ev := range archivePool.SubManyEose(timeout, relays, filters) {
 			for _, trustedPubkey := range trustNetworkCopy {
 				if ev.Event.PubKey == trustedPubkey {
 					if ev.Event.Kind == nostr.KindContactList {
@@ -263,7 +263,5 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 			}
 		}
 		cancel()
-
-		fmt.Println("archiveTrustedNotes: finished one cycle, will restart in 10 minutes")
 	}
 }
