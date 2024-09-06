@@ -107,7 +107,7 @@ func main() {
 		}
 	})
 
-	mux.Handle("/favicon.ico", http.StripPrefix("/", http.FileServer(http.Dir("/mnt/dev/bitvora/wot-relay/templates/static"))))
+	mux.Handle("/favicon.ico", http.StripPrefix("/", http.FileServer(http.Dir("templates/static"))))
 
 	fmt.Println("running on :3334")
 	http.ListenAndServe(":3334", relay)
