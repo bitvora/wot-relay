@@ -49,15 +49,10 @@ func main() {
 		panic(err)
 	}
 
-	mu.Lock()
-	copiedTrustNetwork := make([]string, len(trustNetwork))
-	copy(copiedTrustNetwork, trustNetwork)
-	mu.Unlock()
-
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 	relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)
 	relay.RejectEvent = append(relay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
-		for _, pk := range copiedTrustNetwork {
+		for _, pk := range trustNetwork {
 			if pk == event.PubKey {
 				return false, ""
 			}
@@ -223,14 +218,8 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	defer ticker.Stop()
 
 	archivePool = nostr.NewSimplePool(ctx)
-
 	for range ticker.C {
-		since := nostr.Timestamp(time.Now().Unix())
-		mu.Lock()
-		trustNetworkCopy := make([]string, len(trustNetwork))
-		copy(trustNetworkCopy, trustNetwork)
-		mu.Unlock()
-
+		timeout, cancel := context.WithTimeout(ctx, 58*time.Second)
 		filters := []nostr.Filter{{
 			Kinds: []int{
 				nostr.KindArticle,
@@ -245,12 +234,10 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 				nostr.KindZap,
 				nostr.KindTextNote,
 			},
-			Since: &since,
 		}}
 
-		timeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 		for ev := range archivePool.SubManyEose(timeout, relays, filters) {
-			for _, trustedPubkey := range trustNetworkCopy {
+			for _, trustedPubkey := range trustNetwork {
 				if ev.Event.PubKey == trustedPubkey {
 					if ev.Event.Kind == nostr.KindContactList {
 						if len(ev.Event.Tags.GetAll([]string{"p"})) > 2000 {
@@ -259,6 +246,7 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 						}
 					}
 					relay.AddEvent(ctx, ev.Event)
+					fmt.Println("archived trusted note: ", ev.Event.ID)
 				}
 			}
 		}
