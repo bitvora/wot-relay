@@ -22,6 +22,8 @@ type Config struct {
 	RelayDescription string
 	DBPath           string
 	RelayURL         string
+	IndexPath        string
+	StaticPath       string
 }
 
 var archivePool *nostr.SimplePool
@@ -107,7 +109,7 @@ func main() {
 		}
 	})
 
-	mux.Handle("/favicon.ico", http.StripPrefix("/", http.FileServer(http.Dir("templates/static"))))
+	mux.Handle("/favicon.ico", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
 
 	fmt.Println("running on :3334")
 	http.ListenAndServe(":3334", relay)
@@ -125,6 +127,8 @@ func LoadConfig() Config {
 		RelayDescription: getEnv("RELAY_DESCRIPTION"),
 		DBPath:           getEnv("DB_PATH"),
 		RelayURL:         getEnv("RELAY_URL"),
+		IndexPath:        getEnv("INDEX_PATH"),
+		StaticPath:       getEnv("STATIC_PATH"),
 	}
 
 	return config
