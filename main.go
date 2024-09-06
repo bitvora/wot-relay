@@ -114,7 +114,7 @@ func getEnv(key string) string {
 
 func refreshTrustNetwork(relay *khatru.Relay) []string {
 	ctx := context.Background()
-	ticker := time.NewTicker(1 * time.Hour)
+	ticker := time.NewTicker(10 * time.Minute)
 	for range ticker.C {
 
 		timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
