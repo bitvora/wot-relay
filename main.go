@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -20,6 +21,7 @@ type Config struct {
 	RelayPubkey      string
 	RelayDescription string
 	DBPath           string
+	RelayURL         string
 }
 
 var archivePool *nostr.SimplePool
@@ -85,6 +87,28 @@ func main() {
 	go refreshTrustNetwork(relay, ctx)
 	go archiveTrustedNotes(relay, ctx)
 
+	mux := relay.Router()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		tmpl := template.Must(template.ParseFiles(os.Getenv("INDEX_PATH")))
+		data := struct {
+			RelayName        string
+			RelayPubkey      string
+			RelayDescription string
+			RelayURL         string
+		}{
+			RelayName:        config.RelayName,
+			RelayPubkey:      config.RelayPubkey,
+			RelayDescription: config.RelayDescription,
+			RelayURL:         config.RelayURL,
+		}
+		err := tmpl.Execute(w, data)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
+	mux.Handle("/favicon.ico", http.StripPrefix("/", http.FileServer(http.Dir("/mnt/dev/bitvora/wot-relay/templates/static"))))
+
 	fmt.Println("running on :3334")
 	http.ListenAndServe(":3334", relay)
 }
@@ -100,6 +124,7 @@ func LoadConfig() Config {
 		RelayPubkey:      getEnv("RELAY_PUBKEY"),
 		RelayDescription: getEnv("RELAY_DESCRIPTION"),
 		DBPath:           getEnv("DB_PATH"),
+		RelayURL:         getEnv("RELAY_URL"),
 	}
 
 	return config
