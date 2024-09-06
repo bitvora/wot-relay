@@ -47,7 +47,7 @@ func main() {
 		panic(err)
 	}
 
-	go refreshTrustNetwork()
+	go refreshTrustNetwork(relay)
 	go archiveTrustedNotes(relay)
 
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
@@ -112,9 +112,9 @@ func getEnv(key string) string {
 	return value
 }
 
-func refreshTrustNetwork() []string {
+func refreshTrustNetwork(relay *khatru.Relay) []string {
 	ctx := context.Background()
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(1 * time.Hour)
 	for range ticker.C {
 
 		timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
@@ -130,8 +130,6 @@ func refreshTrustNetwork() []string {
 				appendPubkey(contact[1])
 			}
 		}
-
-		fmt.Println("trust network size:", len(trustNetwork))
 
 		chunks := make([][]string, 0)
 		for i := 0; i < len(trustNetwork); i += 100 {
@@ -163,9 +161,36 @@ func refreshTrustNetwork() []string {
 		}
 
 		fmt.Println("trust network size:", len(trustNetwork))
+		getTrustNetworkProfileMetadata(relay)
 	}
 
 	return trustNetwork
+}
+
+func getTrustNetworkProfileMetadata(relay *khatru.Relay) {
+	ctx := context.Background()
+
+	chunks := make([][]string, 0)
+	for i := 0; i < len(trustNetwork); i += 100 {
+		end := i + 100
+		if end > len(trustNetwork) {
+			end = len(trustNetwork)
+		}
+		chunks = append(chunks, trustNetwork[i:end])
+	}
+
+	for _, chunk := range chunks {
+		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
+		filters := []nostr.Filter{{
+			Authors: chunk,
+			Kinds:   []int{nostr.KindProfileMetadata},
+		}}
+
+		for ev := range pool.SubManyEose(timeoutCtx, relays, filters) {
+			relay.AddEvent(timeoutCtx, ev.Event)
+		}
+	}
 }
 
 func appendPubkey(pubkey string) {
