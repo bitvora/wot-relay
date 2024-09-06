@@ -22,7 +22,9 @@ type Config struct {
 	DBPath           string
 }
 
-var pool *nostr.SimplePool
+var archivePool *nostr.SimplePool
+var fetchingPool *nostr.SimplePool
+
 var relays []string
 var config Config
 var trustNetwork []string
@@ -38,7 +40,7 @@ func main() {
 	relay.Info.Name = config.RelayName
 	relay.Info.PubKey = config.RelayPubkey
 	relay.Info.Description = config.RelayDescription
-	trustNetwork = append(trustNetwork, config.RelayPubkey)
+	appendPubkey(config.RelayPubkey)
 
 	db := lmdb.LMDBBackend{
 		Path: getEnv("DB_PATH"),
@@ -47,13 +49,15 @@ func main() {
 		panic(err)
 	}
 
-	go refreshTrustNetwork(relay)
-	go archiveTrustedNotes(relay)
+	mu.Lock()
+	copiedTrustNetwork := make([]string, len(trustNetwork))
+	copy(copiedTrustNetwork, trustNetwork)
+	mu.Unlock()
 
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 	relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)
 	relay.RejectEvent = append(relay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
-		for _, pk := range trustNetwork {
+		for _, pk := range copiedTrustNetwork {
 			if pk == event.PubKey {
 				return false, ""
 			}
@@ -61,6 +65,7 @@ func main() {
 		return true, "you are not in the web of trust"
 	})
 
+	mu.Lock()
 	relays = []string{
 		"wss://nos.lol",
 		"wss://nostr.mom",
@@ -79,10 +84,11 @@ func main() {
 		"wss://nostr21.com",
 		"wss://nostrue.com",
 		"wss://relay.siamstr.com",
-		"wss://nostrarchives.com",
 	}
+	mu.Unlock()
 
-	pool = nostr.NewSimplePool(ctx)
+	go refreshTrustNetwork(relay, ctx)
+	go archiveTrustedNotes(relay, ctx)
 
 	fmt.Println("running on :3334")
 	http.ListenAndServe(":3334", relay)
@@ -112,11 +118,11 @@ func getEnv(key string) string {
 	return value
 }
 
-func refreshTrustNetwork(relay *khatru.Relay) []string {
-	ctx := context.Background()
-	ticker := time.NewTicker(10 * time.Minute)
-	for range ticker.C {
+func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) []string {
+	fetchingPool = nostr.NewSimplePool(ctx)
 
+	// Function to refresh the trust network
+	runTrustNetworkRefresh := func() {
 		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 
@@ -125,7 +131,7 @@ func refreshTrustNetwork(relay *khatru.Relay) []string {
 			Kinds:   []int{nostr.KindContactList},
 		}}
 
-		for ev := range pool.SubManyEose(timeoutCtx, relays, filters) {
+		for ev := range fetchingPool.SubManyEose(timeoutCtx, relays, filters) {
 			for _, contact := range ev.Event.Tags.GetAll([]string{"p"}) {
 				appendPubkey(contact[1])
 			}
@@ -141,7 +147,7 @@ func refreshTrustNetwork(relay *khatru.Relay) []string {
 		}
 
 		for _, chunk := range chunks {
-			threeTimeoutCtx, tenCancel := context.WithTimeout(ctx, 3*time.Second)
+			threeTimeoutCtx, tenCancel := context.WithTimeout(ctx, 10*time.Second)
 			defer tenCancel()
 
 			filters = []nostr.Filter{{
@@ -149,7 +155,7 @@ func refreshTrustNetwork(relay *khatru.Relay) []string {
 				Kinds:   []int{nostr.KindContactList},
 			}}
 
-			for ev := range pool.SubManyEose(threeTimeoutCtx, relays, filters) {
+			for ev := range fetchingPool.SubManyEose(threeTimeoutCtx, relays, filters) {
 				for _, contact := range ev.Event.Tags.GetAll([]string{"p"}) {
 					if len(contact) > 1 {
 						appendPubkey(contact[1])
@@ -161,15 +167,22 @@ func refreshTrustNetwork(relay *khatru.Relay) []string {
 		}
 
 		fmt.Println("trust network size:", len(trustNetwork))
-		getTrustNetworkProfileMetadata(relay)
+		getTrustNetworkProfileMetadata(relay, ctx)
+	}
+
+	runTrustNetworkRefresh()
+
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		runTrustNetworkRefresh()
 	}
 
 	return trustNetwork
 }
 
-func getTrustNetworkProfileMetadata(relay *khatru.Relay) {
-	ctx := context.Background()
-
+func getTrustNetworkProfileMetadata(relay *khatru.Relay, ctx context.Context) {
 	chunks := make([][]string, 0)
 	for i := 0; i < len(trustNetwork); i += 100 {
 		end := i + 100
@@ -187,8 +200,8 @@ func getTrustNetworkProfileMetadata(relay *khatru.Relay) {
 			Kinds:   []int{nostr.KindProfileMetadata},
 		}}
 
-		for ev := range pool.SubManyEose(timeoutCtx, relays, filters) {
-			relay.AddEvent(timeoutCtx, ev.Event)
+		for ev := range fetchingPool.SubManyEose(timeoutCtx, relays, filters) {
+			relay.AddEvent(ctx, ev.Event)
 		}
 	}
 }
@@ -205,19 +218,20 @@ func appendPubkey(pubkey string) {
 	trustNetwork = append(trustNetwork, pubkey)
 }
 
-func archiveTrustedNotes(relay *khatru.Relay) {
-	// Create a ticker to restart the function every minute
+func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		// Copy the current state of trustNetwork at the start of the function
-		mu.Lock() // Lock while copying the trustNetwork to avoid partial reads
-		localTrustNetwork := make([]string, len(trustNetwork))
-		copy(localTrustNetwork, trustNetwork)
-		mu.Unlock() // Unlock immediately after copying
+	archivePool = nostr.NewSimplePool(ctx)
 
-		ctx := context.Background()
+	for range ticker.C {
+		mu.Lock()
+		trustNetworkCopy := make([]string, len(trustNetwork))
+		copy(trustNetworkCopy, trustNetwork)
+		mu.Unlock()
+		ctxTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
+		// Create a new context with timeout for each iteration of the loop
+
 		filters := []nostr.Filter{{
 			Kinds: []int{
 				nostr.KindArticle,
@@ -234,14 +248,21 @@ func archiveTrustedNotes(relay *khatru.Relay) {
 			},
 		}}
 
-		// Use the local copy of trustNetwork in the event loop
-		for ev := range pool.SubMany(ctx, relays, filters) {
-			for _, trustedPubkey := range localTrustNetwork {
+		// Iterate over events from the pool and archive trusted notes
+		for ev := range archivePool.SubManyEose(ctxTimeout, relays, filters) {
+			for _, trustedPubkey := range trustNetworkCopy {
 				if ev.Event.PubKey == trustedPubkey {
+					if ev.Event.Kind == nostr.KindContactList {
+						if len(ev.Event.Tags.GetAll([]string{"p"})) > 2000 {
+							fmt.Println("archiveTrustedNotes: skipping contact list with more than 2000 contacts. NoteID: ", ev.Event.ID)
+							continue
+						}
+					}
 					relay.AddEvent(ctx, ev.Event)
 				}
 			}
 		}
+		cancel()
 
 		fmt.Println("archiveTrustedNotes: finished one cycle, will restart in 1 minute")
 	}
