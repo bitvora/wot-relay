@@ -194,6 +194,7 @@ func archiveTrustedNotes(relay *khatru.Relay) {
 			nostr.KindRepost,
 			nostr.KindZapRequest,
 			nostr.KindZap,
+			nostr.KindTextNote,
 		},
 	}}
 
