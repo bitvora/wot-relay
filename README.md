@@ -91,7 +91,7 @@ sudo systemctl start wot-relay
 sudo systemctl enable wot-relay
 ```
 
-### 6. Start the Project with Docker Compose
+### 6. Start the Project with Docker Compose (optional)
 
 To start the project using Docker Compose, follow these steps:
 
