@@ -117,7 +117,7 @@ func refreshTrustNetwork(relay *khatru.Relay) []string {
 	ticker := time.NewTicker(10 * time.Minute)
 	for range ticker.C {
 
-		timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 
 		filters := []nostr.Filter{{
@@ -206,28 +206,43 @@ func appendPubkey(pubkey string) {
 }
 
 func archiveTrustedNotes(relay *khatru.Relay) {
-	ctx := context.Background()
-	filters := []nostr.Filter{{
-		Kinds: []int{
-			nostr.KindArticle,
-			nostr.KindDeletion,
-			nostr.KindContactList,
-			nostr.KindEncryptedDirectMessage,
-			nostr.KindMuteList,
-			nostr.KindReaction,
-			nostr.KindRelayListMetadata,
-			nostr.KindRepost,
-			nostr.KindZapRequest,
-			nostr.KindZap,
-			nostr.KindTextNote,
-		},
-	}}
+	// Create a ticker to restart the function every minute
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
 
-	for ev := range pool.SubMany(ctx, relays, filters) {
-		for _, trustedPubkey := range trustNetwork {
-			if ev.Event.PubKey == trustedPubkey {
-				relay.AddEvent(ctx, ev.Event)
+	for range ticker.C {
+		// Copy the current state of trustNetwork at the start of the function
+		mu.Lock() // Lock while copying the trustNetwork to avoid partial reads
+		localTrustNetwork := make([]string, len(trustNetwork))
+		copy(localTrustNetwork, trustNetwork)
+		mu.Unlock() // Unlock immediately after copying
+
+		ctx := context.Background()
+		filters := []nostr.Filter{{
+			Kinds: []int{
+				nostr.KindArticle,
+				nostr.KindDeletion,
+				nostr.KindContactList,
+				nostr.KindEncryptedDirectMessage,
+				nostr.KindMuteList,
+				nostr.KindReaction,
+				nostr.KindRelayListMetadata,
+				nostr.KindRepost,
+				nostr.KindZapRequest,
+				nostr.KindZap,
+				nostr.KindTextNote,
+			},
+		}}
+
+		// Use the local copy of trustNetwork in the event loop
+		for ev := range pool.SubMany(ctx, relays, filters) {
+			for _, trustedPubkey := range localTrustNetwork {
+				if ev.Event.PubKey == trustedPubkey {
+					relay.AddEvent(ctx, ev.Event)
+				}
 			}
 		}
+
+		fmt.Println("archiveTrustedNotes: finished one cycle, will restart in 1 minute")
 	}
 }
