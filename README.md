@@ -91,7 +91,21 @@ sudo systemctl start wot-relay
 sudo systemctl enable wot-relay
 ```
 
-### 6. Access the relay
+### 6. Start the Project with Docker Compose (optional)
+
+To start the project using Docker Compose, follow these steps:
+
+1. Ensure Docker and Docker Compose are installed on your system.
+2. Navigate to the project directory.
+3. Run the following command:
+
+    ```sh
+    docker-compose up --build
+    ```
+
+This will build the Docker image and start the `wot-relay` service as defined in the `docker-compose.yml` file. The application will be accessible on port 3334.
+
+### 7. Access the relay
 
 Once everything is set up, the relay will be running on `localhost:3334`.
 
