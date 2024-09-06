@@ -112,7 +112,10 @@ func main() {
 	mux.Handle("/favicon.ico", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
 
 	fmt.Println("running on :3334")
-	http.ListenAndServe(":3334", relay)
+	err := http.ListenAndServe(":3334", relay)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func LoadConfig() Config {
