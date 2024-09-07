@@ -139,8 +139,6 @@ docker compose -f docker-compose.tor.yml up --build
 docker compose -f docker-compose.tor.yml up --build -d
 ```
 
-You can disable or enable clearnet access by changing `ENABLE_CLEARNET=false` or `ENABLE_CLEARNET=true` in the `.env` file.
-
 You can find the onion address here: `tor/data/relay/hostname`
 
 ### 8. Access the relay
