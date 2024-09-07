@@ -11,8 +11,7 @@ services:
       - "./templates/index.html:/app/templates/index.html"
       - "./templates/static:/app/templates/static"
     ports:
-      - "3334" # default port
-      - ${ENABLE_CLEARNET:+3334:3334}
+      - "3334"
 
   tor:
     image: lncm/tor:0.4.7.9@sha256:86c2fe9d9099e6376798979110b8b9a3ee5d8adec27289ac4a5ee892514ffe92
