@@ -10,8 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cespare/xxhash"
 	"github.com/fiatjaf/eventstore/lmdb"
 	"github.com/fiatjaf/khatru"
+	"github.com/greatroar/blobloom"
 	"github.com/joho/godotenv"
 	"github.com/nbd-wtf/go-nostr"
 )
@@ -268,18 +270,23 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 			},
 		}}
 
+		nKeys := uint64(len(trustNetwork))
+		bloomFilter := blobloom.NewOptimized(blobloom.Config{
+			Capacity: nKeys,
+			FPRate:   1e-4,
+		})
+		for _, trustedPubkey := range trustNetwork {
+			bloomFilter.Add(xxhash.Sum64([]byte(trustedPubkey)))
+		}
+
 		for ev := range archivePool.SubManyEose(timeout, relays, filters) {
-			for _, trustedPubkey := range trustNetwork {
-				if ev.Event.PubKey == trustedPubkey {
-					if ev.Event.Kind == nostr.KindContactList {
-						if len(ev.Event.Tags.GetAll([]string{"p"})) > 2000 {
-							fmt.Println("archiveTrustedNotes: skipping contact list with more than 2000 contacts. NoteID: ", ev.Event.ID)
-							continue
-						}
-					}
-					relay.AddEvent(ctx, ev.Event)
-					fmt.Println("archived trusted note: ", ev.Event.ID)
+
+			if bloomFilter.Has(xxhash.Sum64([]byte(ev.Event.PubKey))) {
+				if len(ev.Event.Tags) > 2000 {
+					fmt.Println("skiping note with over 2000 tags")
+					continue
 				}
+				relay.AddEvent(ctx, ev.Event)
 			}
 		}
 		cancel()
