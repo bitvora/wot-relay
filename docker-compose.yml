@@ -1,5 +1,5 @@
 services:
-  wot-relay:
+  relay:
     container_name: wot-relay
     build:
       context: .

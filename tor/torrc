@@ -1,0 +1,2 @@
+HiddenServiceDir /var/lib/tor/relay
+HiddenServicePort 80 relay:3334
