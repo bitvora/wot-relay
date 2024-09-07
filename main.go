@@ -223,7 +223,6 @@ func getTrustNetworkProfileMetadata(relay *khatru.Relay, ctx context.Context) {
 		}
 
 		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		defer cancel()
 		filters := []nostr.Filter{{
 			Authors: chunk,
 			Kinds:   []int{nostr.KindProfileMetadata},
@@ -232,6 +231,7 @@ func getTrustNetworkProfileMetadata(relay *khatru.Relay, ctx context.Context) {
 		for ev := range fetchingPool.SubManyEose(timeoutCtx, relays, filters) {
 			relay.AddEvent(ctx, ev.Event)
 		}
+		cancel()
 	}
 }
 
