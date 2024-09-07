@@ -128,7 +128,22 @@ To start the project using Docker Compose, follow these steps:
 
 This will build the Docker image and start the `wot-relay` service as defined in the `docker-compose.yml` file. The application will be accessible on port 3334.
 
-### 7. Access the relay
+### 7. Hidden Service with Tor (optional)
+
+Same as the step 6, but with the following command:
+
+```sh
+# in foreground
+docker compose -f docker-compose.tor.yml up --build
+# in background
+docker compose -f docker-compose.tor.yml up --build -d
+```
+
+You can disable or enable clearnet access by changing `ENABLE_CLEARNET=false` or `ENABLE_CLEARNET=true` in the `.env` file.
+
+You can find the onion address here: `tor/data/relay/hostname`
+
+### 8. Access the relay
 
 Once everything is set up, the relay will be running on `localhost:3334`.
 
