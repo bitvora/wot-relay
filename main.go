@@ -248,9 +248,10 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	archivePool = nostr.NewSimplePool(ctx)
 	for range ticker.C {
-		timeout, cancel := context.WithTimeout(ctx, 58*time.Second)
+		ctx := context.Background()
+		archivePool = nostr.NewSimplePool(ctx)
+		timeout, cancel := context.WithTimeout(ctx, 50*time.Second)
 		filters := []nostr.Filter{{
 			Kinds: []int{
 				nostr.KindArticle,
@@ -268,6 +269,7 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 		}}
 
 		nKeys := uint64(len(trustNetwork))
+		fmt.Println("trust network size:", nKeys)
 		bloomFilter := blobloom.NewOptimized(blobloom.Config{
 			Capacity: nKeys,
 			FPRate:   1e-4,
@@ -276,7 +278,7 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 			bloomFilter.Add(xxhash.Sum64([]byte(trustedPubkey)))
 		}
 
-		for ev := range archivePool.SubManyEose(timeout, relays, filters) {
+		for ev := range archivePool.SubMany(timeout, relays, filters) {
 
 			if bloomFilter.Has(xxhash.Sum64([]byte(ev.Event.PubKey))) {
 				if len(ev.Event.Tags) > 2000 {
