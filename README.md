@@ -5,6 +5,7 @@ WOT Relay is a Nostr relay that saves all the notes that people you follow, and 
 ## Prerequisites
 
 - **Go**: Ensure you have Go installed on your system. You can download it from [here](https://golang.org/dl/).
+- **Build Essentials**: If you're using Linux, you may need to install build essentials. You can do this by running `sudo apt install build-essential`.
 
 ## Setup Instructions
 
@@ -33,7 +34,9 @@ Open the `.env` file and set the necessary environment variables. Example variab
 RELAY_NAME="YourRelayName"
 RELAY_PUBKEY="YourPublicKey"
 RELAY_DESCRIPTION="Your relay description"
-DB_PATH="/path/to/your/database"
+DB_PATH="/home/ubuntu/wot-relay/db" # any path you would like the database to be saved.
+INDEX_PATH="/home/ubuntu/wot-relay/templates/index.html" # path to the index.html file
+STATIC_PATH="/home/ubuntu/wot-relay/templates/static" # path to the static folder
 ```
 
 ### 4. Build the project
@@ -97,34 +100,35 @@ To start the project using Docker Compose, follow these steps:
 
 1. Ensure Docker and Docker Compose are installed on your system.
 2. Navigate to the project directory.
-3. Ensure the `.env` file is present in the project directory and has the necessary environment variables set. 
+3. Ensure the `.env` file is present in the project directory and has the necessary environment variables set.
 4. You can also change the paths of the `db` folder and `templates` folder in the `docker-compose.yml` file.
 
    ```yaml
-    volumes:
-      - "./db:/app/db" # only change the left side before the colon
-      - "./templates/index.html:/app/templates/index.html" # only change the left side before the colon
-      - "./templates/static:/app/templates/static" # only change the left side before the colon
+   volumes:
+     - "./db:/app/db" # only change the left side before the colon
+     - "./templates/index.html:/app/templates/index.html" # only change the left side before the colon
+     - "./templates/static:/app/templates/static" # only change the left side before the colon
    ```
 
 5. Run the following command:
 
-    ```sh
-    # in foreground
-    docker compose up --build
-    # in background
-    docker compose up --build -d
-    ```
+   ```sh
+   # in foreground
+   docker compose up --build
+   # in background
+   docker compose up --build -d
+   ```
+
 6. For updating the relay, run the following command:
 
-    ```sh
-    git pull
-    docker compose build --no-cache
-    # in foreground
-    docker compose up
-    # in background
-    docker compose up -d
-    ```
+   ```sh
+   git pull
+   docker compose build --no-cache
+   # in foreground
+   docker compose up
+   # in background
+   docker compose up -d
+   ```
 
 This will build the Docker image and start the `wot-relay` service as defined in the `docker-compose.yml` file. The application will be accessible on port 3334.
 
