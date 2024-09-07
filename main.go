@@ -192,7 +192,6 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) []string {
 			}
 		}
 
-		fmt.Println("trust network size:", len(trustNetwork))
 		getTrustNetworkProfileMetadata(relay, ctx)
 	}
 
@@ -219,6 +218,10 @@ func getTrustNetworkProfileMetadata(relay *khatru.Relay, ctx context.Context) {
 	}
 
 	for _, chunk := range chunks {
+		if len(chunk) == 0 {
+			continue
+		}
+
 		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 		filters := []nostr.Filter{{
@@ -246,11 +249,10 @@ func appendPubkey(pubkey string) {
 
 func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Minute)
+	archivePool = nostr.NewSimplePool(ctx)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		ctx := context.Background()
-		archivePool = nostr.NewSimplePool(ctx)
 		timeout, cancel := context.WithTimeout(ctx, 50*time.Second)
 		filters := []nostr.Filter{{
 			Kinds: []int{
@@ -282,10 +284,10 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 
 			if bloomFilter.Has(xxhash.Sum64([]byte(ev.Event.PubKey))) {
 				if len(ev.Event.Tags) > 2000 {
-					fmt.Println("skiping note with over 2000 tags")
 					continue
 				}
 				relay.AddEvent(ctx, ev.Event)
+
 			}
 		}
 		cancel()
