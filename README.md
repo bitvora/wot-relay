@@ -97,24 +97,36 @@ To start the project using Docker Compose, follow these steps:
 
 1. Ensure Docker and Docker Compose are installed on your system.
 2. Navigate to the project directory.
-3. Edit the `docker-compose.yml` file to update the environment variables as needed:
+3. Ensure the `.env` file is present in the project directory and has the necessary environment variables set. 
+4. You can also change the paths of the `db` folder and `templates` folder in the `docker-compose.yml` file.
 
-    ```yaml
-    environment:
-        RELAY_NAME: "utxo WoT relay"
-        RELAY_PUBKEY: "YOURPUBKEY"
-        RELAY_DESCRIPTION: "Only notes in utxo WoT"
-        DB_PATH: "./db"
-    ```
+   ```yaml
+    volumes:
+      - "./db:/app/db" # only change the left side before the colon
+      - "./templates/index.html:/app/templates/index.html" # only change the left side before the colon
+      - "./templates/static:/app/templates/static" # only change the left side before the colon
+   ```
 
-4. Run the following command:
+5. Run the following command:
 
     ```sh
-    docker-compose up --build
+    # in foreground
+    docker compose up --build
+    # in background
+    docker compose up --build -d
+    ```
+6. For updating the relay, run the following command:
+
+    ```sh
+    git pull
+    docker compose build --no-cache
+    # in foreground
+    docker compose up
+    # in background
+    docker compose up -d
     ```
 
 This will build the Docker image and start the `wot-relay` service as defined in the `docker-compose.yml` file. The application will be accessible on port 3334.
-
 
 ### 7. Access the relay
 

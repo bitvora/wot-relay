@@ -4,18 +4,22 @@ FROM golang:bookworm
 # Set the working directory within the container
 WORKDIR /app
 
-# Clone the repository
-RUN git clone https://github.com/bitvora/wot-relay . 
+# Copy go.mod and go.sum files
+COPY go.mod go.sum ./
 
-# Download Go module dependencies
+# Download dependencies
 RUN go mod download
 
-# Write the .env file
-RUN touch .env && \
-    echo "RELAY_NAME=${RELAY_NAME}" >> .env && \
-    echo "RELAY_PUBKEY=${RELAY_PUBKEY}" >> .env && \
-    echo "RELAY_DESCRIPTION=${RELAY_DESCRIPTION}" >> .env && \
-    echo "DB_PATH=${DB_PATH}" >> .env
+# Copy the rest of the application source code
+COPY . .
+
+# Set fixed environment variables
+ENV DB_PATH="db"
+ENV INDEX_PATH="templates/index.html"
+ENV STATIC_PATH="templates/static"
+
+# touch a .env (https://github.com/bitvora/wot-relay/pull/4)
+RUN touch .env
 
 # Build the Go application
 RUN go build -o main .
