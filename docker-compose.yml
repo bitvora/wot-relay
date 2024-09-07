@@ -1,14 +1,14 @@
 services:
-  wot-relay:
+  relay:
+    container_name: wot-relay
     build:
       context: .
       dockerfile: Dockerfile
-    environment:
-        RELAY_NAME: "utxo WoT relay"
-        RELAY_PUBKEY: "e2ccf7cf20403f3f2a4a55b328f0de3be38558a7d5f33632fdaaefc726c1c8eb"
-        RELAY_DESCRIPTION: "Only notes in utxo WoT"
-        DB_PATH: "./db"
+    env_file:
+      - .env
     volumes:
-      - "./db:/app/db"
+      - "./db:/app/db" # only change the left side before the colon
+      - "./templates/index.html:/app/templates/index.html" # only change the left side before the colon
+      - "./templates/static:/app/templates/static" # only change the left side before the colon
     ports:
       - "3334:3334"
