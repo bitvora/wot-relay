@@ -119,10 +119,7 @@ func main() {
 }
 
 func LoadConfig() Config {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
+	godotenv.Load(".env")
 
 	config := Config{
 		RelayName:        getEnv("RELAY_NAME"),
