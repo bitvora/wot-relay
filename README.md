@@ -1,6 +1,6 @@
-# WOT Relay
+# WoT Relay
 
-WOT Relay is a Nostr relay that saves all the notes that people you follow, and people they follow are posting.
+WOT Relay is a Nostr relay that saves all the notes that people you follow, and people they follow are posting. It's built on the [Khatru](https://khatru.nostr.technology) framework.
 
 ## Prerequisites
 
@@ -37,6 +37,7 @@ RELAY_DESCRIPTION="Your relay description"
 DB_PATH="/home/ubuntu/wot-relay/db" # any path you would like the database to be saved.
 INDEX_PATH="/home/ubuntu/wot-relay/templates/index.html" # path to the index.html file
 STATIC_PATH="/home/ubuntu/wot-relay/templates/static" # path to the static folder
+REFRESH_INTERVAL=24 # interval in hours to refresh the web of trust
 ```
 
 ### 4. Build the project
@@ -65,10 +66,9 @@ Description=WOT Relay Service
 After=network.target
 
 [Service]
-ExecStart=/path/to/wot-relay
-WorkingDirectory=/path/to/wot-relay
+ExecStart=/home/ubuntu/wot-relay/wot-relay #change this to your path
+WorkingDirectory=/home/ubuntu/wot-relay #change this to your path
 Restart=always
-EnvironmentFile=/path/to/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -94,7 +94,63 @@ sudo systemctl start wot-relay
 sudo systemctl enable wot-relay
 ```
 
-### 6. Start the Project with Docker Compose (optional)
+#### Permission Issues on Some Systems
+
+the relay may not have permissions to read and write to the database. To fix this, you can change the permissions of the database folder:
+
+```bash
+sudo chmod -R 777 /path/to/db
+```
+
+### 6. Serving over nginx (optional)
+
+You can serve the relay over nginx by adding the following configuration to your nginx configuration file:
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:3334;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Replace `yourdomain.com` with your actual domain name.
+
+After adding the configuration, restart nginx:
+
+```bash
+sudo systemctl restart nginx
+```
+
+### 7. Install Certbot (optional)
+
+If you want to serve the relay over HTTPS, you can use Certbot to generate an SSL certificate.
+
+```bash
+sudo apt-get update
+sudo apt-get install certbot python3-certbot-nginx
+```
+
+After installing Certbot, run the following command to generate an SSL certificate:
+
+```bash
+sudo certbot --nginx
+```
+
+Follow the instructions to generate the certificate.
+
+### 8. Access the relay
+
+Once everything is set up, the relay will be running on `localhost:3334` or your domain name if you set up nginx.
+
+## Start the Project with Docker Compose
 
 To start the project using Docker Compose, follow these steps:
 

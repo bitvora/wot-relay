@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ type Config struct {
 	RelayURL         string
 	IndexPath        string
 	StaticPath       string
+	RefreshInterval  int
 }
 
 var pool *nostr.SimplePool
@@ -35,19 +37,27 @@ var mu sync.Mutex
 var trustNetworkFilter *blobloom.Filter
 var trustNetworkFilterMu sync.Mutex
 var seedRelays []string
+var booted bool
+var oneHopNetwork []string
 
 func main() {
+	booted = false
 	green := "\033[32m"
 	reset := "\033[0m"
 
-	art := `                               
- __      __      ___.             _____  ___________                      __   
-/  \    /  \ ____\_ |__     _____/ ____\ \__    ___/______ __ __  _______/  |_ 
-\   \/\/   // __ \| __ \   /  _ \   __\    |    |  \_  __ \  |  \/  ___/\   __\
- \        /\  ___/| \_\ \ (  <_> )  |      |    |   |  | \/  |  /\___ \  |  |  
-  \__/\  /  \___  >___  /  \____/|__|      |____|   |__|  |____//____  > |__|  
-       \/       \/    \/                                             \/            
-		`
+	art := `
+888       888      88888888888      8888888b.          888                   
+888   o   888          888          888   Y88b         888                   
+888  d8b  888          888          888    888         888                   
+888 d888b 888  .d88b.  888          888   d88P .d88b.  888  8888b.  888  888 
+888d88888b888 d88""88b 888          8888888P" d8P  Y8b 888     "88b 888  888 
+88888P Y88888 888  888 888          888 T88b  88888888 888 .d888888 888  888 
+8888P   Y8888 Y88..88P 888          888  T88b Y8b.     888 888  888 Y88b 888 
+888P     Y888  "Y88P"  888          888   T88b "Y8888  888 "Y888888  "Y88888 
+                                                                         888 
+                                                                    Y8b d88P 
+                                               powered by: khatru     "Y88P"  
+	`
 
 	fmt.Println(green + art + reset)
 	log.Println("🚀 booting up web of trust relay")
@@ -101,7 +111,6 @@ func main() {
 	mu.Unlock()
 
 	go refreshTrustNetwork(relay, ctx)
-	go archiveTrustedNotes(relay, ctx)
 
 	mux := relay.Router()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -135,6 +144,13 @@ func main() {
 func LoadConfig() Config {
 	godotenv.Load(".env")
 
+	if os.Getenv("REFRESH_INTERVAL_HOURS") == "" {
+		os.Setenv("REFRESH_INTERVAL_HOURS", "24")
+	}
+
+	refreshInterval, _ := strconv.Atoi(os.Getenv("REFRESH_INTERVAL_HOURS"))
+	log.Println("🔄 refresh interval set to", refreshInterval, "hours")
+
 	config := Config{
 		RelayName:        getEnv("RELAY_NAME"),
 		RelayPubkey:      getEnv("RELAY_PUBKEY"),
@@ -143,6 +159,7 @@ func LoadConfig() Config {
 		RelayURL:         getEnv("RELAY_URL"),
 		IndexPath:        getEnv("INDEX_PATH"),
 		StaticPath:       getEnv("STATIC_PATH"),
+		RefreshInterval:  refreshInterval,
 	}
 
 	return config
@@ -171,10 +188,10 @@ func updateTrustNetworkFilter() {
 	}
 }
 
-func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) []string {
+func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 
 	runTrustNetworkRefresh := func() {
-		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
 
 		filters := []nostr.Filter{{
@@ -185,25 +202,22 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) []string {
 		log.Println("🔍 fetching owner's follows")
 		for ev := range pool.SubManyEose(timeoutCtx, seedRelays, filters) {
 			for _, contact := range ev.Event.Tags.GetAll([]string{"p"}) {
-				appendPubkey(contact[1])
+				appendOneHopNetwork(contact[1])
 			}
 		}
 
-		follows := make([]string, len(trustNetwork))
-		copy(follows, trustNetwork)
-
 		log.Println("🌐 building web of trust graph")
-		for i := 0; i < len(follows); i += 200 {
+		for i := 0; i < len(oneHopNetwork); i += 100 {
 			timeout, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
 
-			end := i + 200
-			if end > len(follows) {
-				end = len(follows)
+			end := i + 100
+			if end > len(oneHopNetwork) {
+				end = len(oneHopNetwork)
 			}
 
 			filters = []nostr.Filter{{
-				Authors: follows[i:end],
+				Authors: oneHopNetwork[i:end],
 				Kinds:   []int{nostr.KindContactList, nostr.KindRelayListMetadata, nostr.KindProfileMetadata},
 			}}
 
@@ -228,18 +242,11 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) []string {
 		log.Println("🔗 relays discovered:", len(relays))
 	}
 
-	runTrustNetworkRefresh()
-	updateTrustNetworkFilter()
-
-	ticker := time.NewTicker(24 * time.Hour)
-	defer ticker.Stop()
-
-	for range ticker.C {
+	for {
 		runTrustNetworkRefresh()
 		updateTrustNetworkFilter()
+		archiveTrustedNotes(relay, ctx)
 	}
-
-	return trustNetwork
 }
 
 func appendRelay(relay string) {
@@ -271,10 +278,25 @@ func appendPubkey(pubkey string) {
 	trustNetwork = append(trustNetwork, pubkey)
 }
 
+func appendOneHopNetwork(pubkey string) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	for _, pk := range oneHopNetwork {
+		if pk == pubkey {
+			return
+		}
+	}
+
+	if len(pubkey) != 64 {
+		return
+	}
+
+	oneHopNetwork = append(oneHopNetwork, pubkey)
+}
+
 func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
-	log.Println("⏳ waiting for trust network to be populated")
-	time.Sleep(1 * time.Minute)
-	timeout, cancel := context.WithTimeout(ctx, 24*time.Hour)
+	timeout, cancel := context.WithTimeout(ctx, time.Duration(config.RefreshInterval)*time.Hour)
 	defer cancel()
 
 	filters := []nostr.Filter{{
@@ -294,7 +316,8 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	}}
 
 	log.Println("📦 archiving trusted notes...")
-	var i int64
+	var trustedNotes uint64
+	var untrustedNotes uint64
 	trustNetworkFilterMu.Lock()
 	for ev := range pool.SubMany(timeout, seedRelays, filters) {
 		if trustNetworkFilter.Has(xxhash.Sum64([]byte(ev.Event.PubKey))) {
@@ -302,9 +325,11 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 				continue
 			}
 			relay.AddEvent(ctx, ev.Event)
-			i++
+			trustedNotes++
+		} else {
+			untrustedNotes++
 		}
 	}
 	trustNetworkFilterMu.Unlock()
-	fmt.Println("📦 archived", i, "trusted notes")
+	log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
 }
