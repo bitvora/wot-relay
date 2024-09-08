@@ -16,6 +16,7 @@ services:
       context: .
       dockerfile: Dockerfile-optimized
     # image: ghcr.io/gbozee/wot-relay:latest
+    restart: always
     env_file:
       - .env
     # build:
@@ -38,6 +39,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - production_traefik:/etc/traefik/acme:z
+    restart: always
     command:
       - --providers.docker
       - --providers.docker.exposedbydefault=false
