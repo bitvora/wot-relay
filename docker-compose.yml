@@ -1,0 +1,18 @@
+services:
+  relay:
+    container_name: wot-relay
+    build:
+      context: .
+      dockerfile: Dockerfile-optimized
+    # env_file:
+    #   - .env
+    environment:
+      RELAY_NAME: "YourRelayName"
+      RELAY_PUBKEY: "YourPublicKey"
+      RELAY_DESCRIPTION: "Your relay description"
+    volumes:
+      - "./db:/app/db" # only change the left side before the colon
+      - "./templates/index.html:/app/templates/index.html" # only change the left side before the colon
+      - "./templates/static:/app/templates/static" # only change the left side before the colon
+    ports:
+      - "3334:3334"
