@@ -28,19 +28,33 @@ type Config struct {
 	StaticPath       string
 }
 
-var archivePool *nostr.SimplePool
-var fetchingPool *nostr.SimplePool
-
+var pool *nostr.SimplePool
 var relays []string
 var config Config
 var trustNetwork []string
 var mu sync.Mutex
+var trustNetworkFilter *blobloom.Filter
+var trustNetworkFilterMu sync.Mutex
+var seedRelays []string
 
 func main() {
-	fmt.Println("starting")
+	green := "\033[32m"
+	reset := "\033[0m"
+
+	art := `                               
+ __      __      ___.             _____  ___________                      __   
+/  \    /  \ ____\_ |__     _____/ ____\ \__    ___/______ __ __  _______/  |_ 
+\   \/\/   // __ \| __ \   /  _ \   __\    |    |  \_  __ \  |  \/  ___/\   __\
+ \        /\  ___/| \_\ \ (  <_> )  |      |    |   |  | \/  |  /\___ \  |  |  
+  \__/\  /  \___  >___  /  \____/|__|      |____|   |__|  |____//____  > |__|  
+       \/       \/    \/                                             \/            
+		`
+
+	fmt.Println(green + art + reset)
+	log.Println("🚀 booting up web of trust relay")
 	relay := khatru.NewRelay()
 	ctx := context.Background()
-
+	pool = nostr.NewSimplePool(ctx)
 	config = LoadConfig()
 
 	relay.Info.Name = config.RelayName
@@ -49,7 +63,7 @@ func main() {
 	appendPubkey(config.RelayPubkey)
 
 	db := lmdb.LMDBBackend{
-		Path: getEnv("DB_PATH"),
+		Path: config.DBPath,
 	}
 	if err := db.Init(); err != nil {
 		panic(err)
@@ -57,6 +71,7 @@ func main() {
 
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 	relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)
+	relay.DeleteEvent = append(relay.DeleteEvent, db.DeleteEvent)
 	relay.RejectEvent = append(relay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
 		for _, pk := range trustNetwork {
 			if pk == event.PubKey {
@@ -67,7 +82,7 @@ func main() {
 	})
 
 	mu.Lock()
-	relays = []string{
+	seedRelays = []string{
 		"wss://nos.lol",
 		"wss://nostr.mom",
 		"wss://purplepag.es",
@@ -113,7 +128,7 @@ func main() {
 
 	mux.Handle("/favicon.ico", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
 
-	fmt.Println("running on :3334")
+	log.Println("🎉 relay running on port :3334")
 	err := http.ListenAndServe(":3334", relay)
 	if err != nil {
 		log.Fatal(err)
@@ -144,10 +159,23 @@ func getEnv(key string) string {
 	return value
 }
 
-func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) []string {
-	fetchingPool = nostr.NewSimplePool(ctx)
+func updateTrustNetworkFilter() {
+	trustNetworkFilterMu.Lock()
+	defer trustNetworkFilterMu.Unlock()
 
-	// Function to refresh the trust network
+	nKeys := uint64(len(trustNetwork))
+	log.Println("🌐 updating trust network filter with", nKeys, "keys")
+	trustNetworkFilter = blobloom.NewOptimized(blobloom.Config{
+		Capacity: nKeys,
+		FPRate:   1e-4,
+	})
+	for _, trustedPubkey := range trustNetwork {
+		trustNetworkFilter.Add(xxhash.Sum64([]byte(trustedPubkey)))
+	}
+}
+
+func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) []string {
+
 	runTrustNetworkRefresh := func() {
 		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
@@ -157,82 +185,76 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) []string {
 			Kinds:   []int{nostr.KindContactList},
 		}}
 
-		for ev := range fetchingPool.SubManyEose(timeoutCtx, relays, filters) {
+		log.Println("🔍 fetching owner's follows")
+		for ev := range pool.SubManyEose(timeoutCtx, seedRelays, filters) {
 			for _, contact := range ev.Event.Tags.GetAll([]string{"p"}) {
 				appendPubkey(contact[1])
 			}
 		}
 
-		chunks := make([][]string, 0)
-		for i := 0; i < len(trustNetwork); i += 100 {
-			end := i + 100
-			if end > len(trustNetwork) {
-				end = len(trustNetwork)
-			}
-			chunks = append(chunks, trustNetwork[i:end])
-		}
+		follows := make([]string, len(trustNetwork))
+		copy(follows, trustNetwork)
 
-		for _, chunk := range chunks {
-			threeTimeoutCtx, tenCancel := context.WithTimeout(ctx, 10*time.Second)
-			defer tenCancel()
+		log.Println("🌐 building web of trust graph")
+		for i := 0; i < len(follows); i += 200 {
+			timeout, cancel := context.WithTimeout(ctx, 3*time.Second)
+			defer cancel()
+
+			end := i + 200
+			if end > len(follows) {
+				end = len(follows)
+			}
 
 			filters = []nostr.Filter{{
-				Authors: chunk,
-				Kinds:   []int{nostr.KindContactList},
+				Authors: follows[i:end],
+				Kinds:   []int{nostr.KindContactList, nostr.KindRelayListMetadata, nostr.KindProfileMetadata},
 			}}
 
-			for ev := range fetchingPool.SubManyEose(threeTimeoutCtx, relays, filters) {
+			for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
 				for _, contact := range ev.Event.Tags.GetAll([]string{"p"}) {
 					if len(contact) > 1 {
 						appendPubkey(contact[1])
-					} else {
-						fmt.Println("Skipping malformed tag: ", contact)
 					}
 				}
-			}
-		}
 
-		getTrustNetworkProfileMetadata(relay, ctx)
+				for _, relay := range ev.Event.Tags.GetAll([]string{"r"}) {
+					appendRelay(relay[1])
+				}
+
+				if ev.Event.Kind == nostr.KindProfileMetadata {
+					relay.AddEvent(ctx, ev.Event)
+				}
+			}
+
+		}
+		log.Println("🫂  network size:", len(trustNetwork))
+		log.Println("🔗 relays discovered:", len(relays))
 	}
 
 	runTrustNetworkRefresh()
+	updateTrustNetworkFilter()
 
-	ticker := time.NewTicker(10 * time.Minute)
+	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
 
 	for range ticker.C {
 		runTrustNetworkRefresh()
+		updateTrustNetworkFilter()
 	}
 
 	return trustNetwork
 }
 
-func getTrustNetworkProfileMetadata(relay *khatru.Relay, ctx context.Context) {
-	chunks := make([][]string, 0)
-	for i := 0; i < len(trustNetwork); i += 100 {
-		end := i + 100
-		if end > len(trustNetwork) {
-			end = len(trustNetwork)
+func appendRelay(relay string) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	for _, r := range relays {
+		if r == relay {
+			return
 		}
-		chunks = append(chunks, trustNetwork[i:end])
 	}
-
-	for _, chunk := range chunks {
-		if len(chunk) == 0 {
-			continue
-		}
-
-		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		filters := []nostr.Filter{{
-			Authors: chunk,
-			Kinds:   []int{nostr.KindProfileMetadata},
-		}}
-
-		for ev := range fetchingPool.SubManyEose(timeoutCtx, relays, filters) {
-			relay.AddEvent(ctx, ev.Event)
-		}
-		cancel()
-	}
+	relays = append(relays, relay)
 }
 
 func appendPubkey(pubkey string) {
@@ -244,52 +266,48 @@ func appendPubkey(pubkey string) {
 			return
 		}
 	}
+
+	if len(pubkey) != 64 {
+		return
+	}
+
 	trustNetwork = append(trustNetwork, pubkey)
 }
 
 func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Minute)
-	archivePool = nostr.NewSimplePool(ctx)
-	defer ticker.Stop()
+	log.Println("⏳ waiting for trust network to be populated")
+	time.Sleep(1 * time.Minute)
+	timeout, cancel := context.WithTimeout(ctx, 24*time.Hour)
+	defer cancel()
 
-	for range ticker.C {
-		timeout, cancel := context.WithTimeout(ctx, 50*time.Second)
-		filters := []nostr.Filter{{
-			Kinds: []int{
-				nostr.KindArticle,
-				nostr.KindDeletion,
-				nostr.KindContactList,
-				nostr.KindEncryptedDirectMessage,
-				nostr.KindMuteList,
-				nostr.KindReaction,
-				nostr.KindRelayListMetadata,
-				nostr.KindRepost,
-				nostr.KindZapRequest,
-				nostr.KindZap,
-				nostr.KindTextNote,
-			},
-		}}
+	filters := []nostr.Filter{{
+		Kinds: []int{
+			nostr.KindArticle,
+			nostr.KindDeletion,
+			nostr.KindContactList,
+			nostr.KindEncryptedDirectMessage,
+			nostr.KindMuteList,
+			nostr.KindReaction,
+			nostr.KindRelayListMetadata,
+			nostr.KindRepost,
+			nostr.KindZapRequest,
+			nostr.KindZap,
+			nostr.KindTextNote,
+		},
+	}}
 
-		nKeys := uint64(len(trustNetwork))
-		fmt.Println("trust network size:", nKeys)
-		bloomFilter := blobloom.NewOptimized(blobloom.Config{
-			Capacity: nKeys,
-			FPRate:   1e-4,
-		})
-		for _, trustedPubkey := range trustNetwork {
-			bloomFilter.Add(xxhash.Sum64([]byte(trustedPubkey)))
-		}
-
-		for ev := range archivePool.SubMany(timeout, relays, filters) {
-
-			if bloomFilter.Has(xxhash.Sum64([]byte(ev.Event.PubKey))) {
-				if len(ev.Event.Tags) > 2000 {
-					continue
-				}
-				relay.AddEvent(ctx, ev.Event)
-
+	log.Println("📦 archiving trusted notes...")
+	var i int64
+	trustNetworkFilterMu.Lock()
+	for ev := range pool.SubMany(timeout, seedRelays, filters) {
+		if trustNetworkFilter.Has(xxhash.Sum64([]byte(ev.Event.PubKey))) {
+			if len(ev.Event.Tags) > 2000 {
+				continue
 			}
+			relay.AddEvent(ctx, ev.Event)
+			i++
 		}
-		cancel()
 	}
+	trustNetworkFilterMu.Unlock()
+	fmt.Println("📦 archived", i, "trusted notes")
 }
