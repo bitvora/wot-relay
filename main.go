@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cespare/xxhash"
-	"github.com/fiatjaf/eventstore/lmdb"
 	"github.com/fiatjaf/khatru"
 	"github.com/greatroar/blobloom"
 	"github.com/joho/godotenv"
@@ -72,9 +71,7 @@ func main() {
 	relay.Info.Description = config.RelayDescription
 	appendPubkey(config.RelayPubkey)
 
-	db := lmdb.LMDBBackend{
-		Path: config.DBPath,
-	}
+	db := getDB()
 	if err := db.Init(); err != nil {
 		panic(err)
 	}
