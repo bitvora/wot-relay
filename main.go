@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -41,6 +42,7 @@ var booted bool
 var oneHopNetwork []string
 
 func main() {
+	nostr.InfoLogger = log.New(io.Discard, "", 0)
 	booted = false
 	green := "\033[32m"
 	reset := "\033[0m"
@@ -321,6 +323,7 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 			if len(ev.Event.Tags) > 2000 {
 				continue
 			}
+
 			relay.AddEvent(ctx, ev.Event)
 			trustedNotes++
 		} else {
