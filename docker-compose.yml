@@ -1,14 +1,84 @@
 services:
-  relay:
-    container_name: wot-relay
+  # relay:
+  #   container_name: wot-relay
+  #   env_file:
+  #     - .env
+  #   volumes:
+  #     - "./db:/app/db" # only change the left side before the colon
+  #     # - "./templates/index.html:/app/templates/index.html" # only change the left side before the colon
+  #     # - "./templates/static:/app/templates/static" # only change the left side before the colon
+  #   ports:
+  #     - "3334:3334"
+
+  relay-optimized:
+    container_name: wot-relay-optimized
     build:
       context: .
       dockerfile: Dockerfile-optimized
+    # image: ghcr.io/gbozee/wot-relay:latest
     env_file:
       - .env
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile-optimized
     volumes:
       - "./db:/app/db" # only change the left side before the colon
-      # - "./templates/index.html:/app/templates/index.html" # only change the left side before the colon
-      # - "./templates/static:/app/templates/static" # only change the left side before the colon
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.relay.rule=Host(`relay.beeola.me`)"
+      - "traefik.http.routers.relay.priority=1"
+      - "traefik.http.routers.relay.entryPoints=web-secure"
+      - "traefik.http.routers.relay.middlewares=csrf"
+      - "traefik.http.services.relay.loadBalancer.sticky.cookie={}"
+      - "traefik.http.services.relay.loadBalancer.server.port=3334"
+      - "traefik.http.routers.relay.tls.certResolver=letsencrypt_web"
+
+  traefik:
+    image: traefik:v2.2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - production_traefik:/etc/traefik/acme:z
+    command:
+      - --providers.docker
+      - --providers.docker.exposedbydefault=false
+      # - --providers.docker.swarmmode
+      # Enable the access log, with HTTP requests
+      - --accesslog
+      - --log
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=web-secure"
+      - "--entrypoints.web-secure.address=:443"
+      # - "--entrypoints.web.forwardedHeaders.insecure=true"
+      # - "--entrypoints.web-secure.forwardedHeaders.insecure=true"
+      - "--certificatesResolvers.letsencrypt_web.acme.email=jamie@example.com"
+      - "--certificatesResolvers.letsencrypt_web.acme.storage=/etc/traefik/acme/acme.json"
+      - "--certificatesResolvers.letsencrypt_web.acme.httpChallenge.entryPoint=web"
+      - "--certificatesResolvers.letsencrypt.acme.email=jamie@example.com"
+      - "--certificatesResolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json"
+      # - "--certificatesResolvers.letsencrypt.acme.dnsChallenge.provider=digitalocean"
+        # - "--certificatesResolvers.letsencrypt.acme.dnsChallenge.provider=route53"
+      # - "--certificatesResolvers.letsencrypt.acme.dnsChallenge.delayBeforeCheck=0"
+
+    labels:
+      # Enable Traefik for this service, to make it available in the public network
+      - traefik.enable=true
+
     ports:
-      - "3334:3334"
+      - target: 80
+        published: 80
+        mode: host
+      - target: 443
+        published: 443
+        mode: host
+      - target: 5555
+        published: 5555
+        mode: host
+      # - "0.0.0.0:80:80"
+      # - "0.0.0.0:443:443"
+      # - "0.0.0.0:5555:5555"
+      # - "0.0.0.0:8080:8080"
+
+volumes:
+  production_traefik: {}
