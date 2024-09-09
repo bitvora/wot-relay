@@ -325,6 +325,7 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 			}
 
 			relay.AddEvent(ctx, ev.Event)
+			log.Println("📦 archived note from", ev.Event.PubKey)
 			trustedNotes++
 		} else {
 			untrustedNotes++
