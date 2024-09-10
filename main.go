@@ -112,6 +112,11 @@ func main() {
 	go refreshTrustNetwork(relay, ctx)
 
 	mux := relay.Router()
+	static := http.FileServer(http.Dir(config.StaticPath))
+
+	mux.Handle("GET /static/", http.StripPrefix("/static/", static))
+	mux.Handle("GET /favicon.ico", http.StripPrefix("/", static))
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		tmpl := template.Must(template.ParseFiles(os.Getenv("INDEX_PATH")))
 		data := struct {
@@ -130,8 +135,6 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
-
-	mux.Handle("/favicon.ico", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
 
 	log.Println("🎉 relay running on port :3334")
 	err := http.ListenAndServe(":3334", relay)
