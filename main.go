@@ -131,7 +131,16 @@ func main() {
 		}
 	})
 
-	mux.Handle("/favicon.ico", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
+		mux.Handle("/favicon.ico", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
+		mux.Handle("/android-chrome-192x192.png", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
+		mux.Handle("/android-chrome-256x256.png", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
+		mux.Handle("/apple-touch-icon.png", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
+		mux.Handle("/browserconfig.xml", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
+		mux.Handle("/favicon-16x16.png", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
+		mux.Handle("/favicon-32x32.png", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
+		mux.Handle("/mstile-150x150.png", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
+		mux.Handle("/safari-pinned-tab.svg", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
+		mux.Handle("/tos.html", http.StripPrefix("/", http.FileServer(http.Dir(config.StaticPath))))
 
 	log.Println("🎉 relay running on port :3334")
 	err := http.ListenAndServe(":3334", relay)
