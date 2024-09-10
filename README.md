@@ -2,6 +2,17 @@
 
 WOT Relay is a Nostr relay that saves all the notes that people you follow, and people they follow are posting. It's built on the [Khatru](https://khatru.nostr.technology) framework.
 
+# Available Relays
+
+Don't want to run the relay, just want to connect to some? Here are some available relays:
+
+- [wss://wot.utxo.one](https://wot.utxo.one)
+- [wss://nostrelites.org](https://nostrelites.org)
+- [wss://wot.nostr.party](https://wot.nostr.party)
+- [wss://wot.sovbit.host](https://wot.sovbit.host)
+- [wss://wot.girino.org](https://wot.girino.org)
+- [wss://relay.lnau.net](https://relay.lnau.net)
+
 ## Prerequisites
 
 - **Go**: Ensure you have Go installed on your system. You can download it from [here](https://golang.org/dl/).
