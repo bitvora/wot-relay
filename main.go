@@ -323,7 +323,7 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	trustNetworkFilterMu.Lock()
 	defer trustNetworkFilterMu.Unlock()
 
-	for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
+	for ev := range pool.SubMany(timeout, seedRelays, filters) {
 		select {
 		case <-ctx.Done():
 			log.Println("⏰ Archive process terminated due to timeout")
@@ -344,4 +344,5 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	}
 
 	log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
+	return
 }
