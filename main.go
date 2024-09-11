@@ -147,7 +147,7 @@ func LoadConfig() Config {
 	godotenv.Load(".env")
 
 	if os.Getenv("REFRESH_INTERVAL_HOURS") == "" {
-		os.Setenv("REFRESH_INTERVAL_HOURS", "24")
+		os.Setenv("REFRESH_INTERVAL_HOURS", "3")
 	}
 
 	refreshInterval, _ := strconv.Atoi(os.Getenv("REFRESH_INTERVAL_HOURS"))
@@ -193,7 +193,7 @@ func updateTrustNetworkFilter() {
 func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 
 	runTrustNetworkRefresh := func() {
-		timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 
 		filters := []nostr.Filter{{
@@ -210,7 +210,7 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 
 		log.Println("🌐 building web of trust graph")
 		for i := 0; i < len(oneHopNetwork); i += 100 {
-			timeout, cancel := context.WithTimeout(ctx, 3*time.Second)
+			timeout, cancel := context.WithTimeout(ctx, 4*time.Second)
 			defer cancel()
 
 			end := i + 100
@@ -321,19 +321,27 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	var trustedNotes uint64
 	var untrustedNotes uint64
 	trustNetworkFilterMu.Lock()
-	for ev := range pool.SubMany(timeout, seedRelays, filters) {
-		if trustNetworkFilter.Has(xxhash.Sum64([]byte(ev.Event.PubKey))) {
-			if len(ev.Event.Tags) > 2000 {
-				continue
-			}
+	defer trustNetworkFilterMu.Unlock()
 
-			relay.AddEvent(ctx, ev.Event)
-			log.Println("📦 archived note from", ev.Event.PubKey)
-			trustedNotes++
-		} else {
-			untrustedNotes++
+	for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
+		select {
+		case <-ctx.Done():
+			log.Println("⏰ Archive process terminated due to timeout")
+			return
+		default:
+			if trustNetworkFilter.Has(xxhash.Sum64([]byte(ev.Event.PubKey))) {
+				if len(ev.Event.Tags) > 3000 {
+					continue
+				}
+
+				relay.AddEvent(ctx, ev.Event)
+				log.Println("📦 archived note: ", ev.Event.ID)
+				trustedNotes++
+			} else {
+				untrustedNotes++
+			}
 		}
 	}
-	trustNetworkFilterMu.Unlock()
+
 	log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
 }
