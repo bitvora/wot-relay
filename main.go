@@ -206,6 +206,31 @@ func updateTrustNetworkFilter() {
 	}
 }
 
+func refreshProfiles(ctx context.Context, relay *khatru.Relay) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	for i := 0; i < len(trustNetwork); i += 200 {
+		timeout, cancel := context.WithTimeout(ctx, 4*time.Second)
+		defer cancel()
+
+		end := i + 200
+		if end > len(trustNetwork) {
+			end = len(trustNetwork)
+		}
+
+		filters := []nostr.Filter{{
+			Authors: trustNetwork[i:end],
+			Kinds:   []int{nostr.KindProfileMetadata},
+		}}
+
+		for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
+			relay.AddEvent(ctx, ev.Event)
+			log.Println("👤 profile updated: ", ev.Event.PubKey)
+		}
+	}
+}
+
 func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 
 	runTrustNetworkRefresh := func() {
@@ -315,6 +340,7 @@ func appendOneHopNetwork(pubkey string) {
 
 func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	timeout := time.After(time.Duration(config.RefreshInterval) * time.Hour)
+	go refreshProfiles(ctx, relay)
 
 	filters := []nostr.Filter{{
 		Kinds: []int{
