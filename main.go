@@ -265,7 +265,9 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 
 			for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
 				for _, contact := range ev.Event.Tags.GetAll([]string{"p"}) {
-					pubkeyFollowerCount[contact[1]]++ // Increment follower count for the pubkey
+					if len(contact) > 1 {
+						pubkeyFollowerCount[contact[1]]++ // Increment follower count for the pubkey
+					}
 				}
 
 				for _, relay := range ev.Event.Tags.GetAll([]string{"r"}) {
