@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/khatru/policies"
 	"github.com/joho/godotenv"
@@ -29,15 +30,18 @@ type Config struct {
 	MinimumFollowers int
 }
 
-var pool *nostr.SimplePool
-var relays []string
-var config Config
-var trustNetwork []string
-var seedRelays []string
-var booted bool
-var oneHopNetwork []string
-var trustNetworkMap map[string]bool
-var pubkeyFollowerCount = make(map[string]int)
+var (
+	pool                *nostr.SimplePool
+	wdb                 nostr.RelayStore
+	relays              []string
+	config              Config
+	trustNetwork        []string
+	seedRelays          []string
+	booted              bool
+	oneHopNetwork       []string
+	trustNetworkMap     map[string]bool
+	pubkeyFollowerCount = make(map[string]int)
+)
 
 func main() {
 	nostr.InfoLogger = log.New(io.Discard, "", 0)
@@ -46,17 +50,17 @@ func main() {
 	reset := "\033[0m"
 
 	art := `
-888       888      88888888888      8888888b.          888                   
-888   o   888          888          888   Y88b         888                   
-888  d8b  888          888          888    888         888                   
-888 d888b 888  .d88b.  888          888   d88P .d88b.  888  8888b.  888  888 
-888d88888b888 d88""88b 888          8888888P" d8P  Y8b 888     "88b 888  888 
-88888P Y88888 888  888 888          888 T88b  88888888 888 .d888888 888  888 
-8888P   Y8888 Y88..88P 888          888  T88b Y8b.     888 888  888 Y88b 888 
-888P     Y888  "Y88P"  888          888   T88b "Y8888  888 "Y888888  "Y88888 
-                                                                         888 
-                                                                    Y8b d88P 
-                                               powered by: khatru     "Y88P"  
+888       888      88888888888      8888888b.          888
+888   o   888          888          888   Y88b         888
+888  d8b  888          888          888    888         888
+888 d888b 888  .d88b.  888          888   d88P .d88b.  888  8888b.  888  888
+888d88888b888 d88""88b 888          8888888P" d8P  Y8b 888     "88b 888  888
+88888P Y88888 888  888 888          888 T88b  88888888 888 .d888888 888  888
+8888P   Y8888 Y88..88P 888          888  T88b Y8b.     888 888  888 Y88b 888
+888P     Y888  "Y88P"  888          888   T88b "Y8888  888 "Y888888  "Y88888
+                                                                         888
+                                                                    Y8b d88P
+                                               powered by: khatru     "Y88P"
 	`
 
 	fmt.Println(green + art + reset)
@@ -75,6 +79,7 @@ func main() {
 	if err := db.Init(); err != nil {
 		panic(err)
 	}
+	wdb = eventstore.RelayWrapper{Store: &db}
 
 	relay.RejectEvent = append(relay.RejectEvent,
 		policies.RejectEventsWithBase64Media,
@@ -120,7 +125,7 @@ func main() {
 		"wss://relay.siamstr.com",
 	}
 
-	go refreshTrustNetwork(relay, ctx)
+	go refreshTrustNetwork(ctx)
 
 	mux := relay.Router()
 	static := http.FileServer(http.Dir(config.StaticPath))
@@ -207,7 +212,7 @@ func updateTrustNetworkFilter() {
 	log.Println("🌐 trust network map updated with", len(trustNetwork), "keys")
 }
 
-func refreshProfiles(ctx context.Context, relay *khatru.Relay) {
+func refreshProfiles(ctx context.Context) {
 	for i := 0; i < len(trustNetwork); i += 200 {
 		timeout, cancel := context.WithTimeout(ctx, 4*time.Second)
 		defer cancel()
@@ -223,14 +228,13 @@ func refreshProfiles(ctx context.Context, relay *khatru.Relay) {
 		}}
 
 		for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
-			relay.AddEvent(ctx, ev.Event)
+			wdb.Publish(ctx, *ev.Event)
 		}
 	}
 	log.Println("👤 profiles refreshed: ", len(trustNetwork))
 }
 
-func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
-
+func refreshTrustNetwork(ctx context.Context) {
 	runTrustNetworkRefresh := func() {
 		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
@@ -275,7 +279,7 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 				}
 
 				if ev.Event.Kind == nostr.KindProfileMetadata {
-					relay.AddEvent(ctx, ev.Event)
+					wdb.Publish(ctx, *ev.Event)
 				}
 			}
 		}
@@ -286,12 +290,11 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 	for {
 		runTrustNetworkRefresh()
 		updateTrustNetworkFilter()
-		archiveTrustedNotes(relay, ctx)
+		archiveTrustedNotes(ctx)
 	}
 }
 
 func appendRelay(relay string) {
-
 	for _, r := range relays {
 		if r == relay {
 			return
@@ -328,9 +331,9 @@ func appendOneHopNetwork(pubkey string) {
 	oneHopNetwork = append(oneHopNetwork, pubkey)
 }
 
-func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
-	timeout := time.After(time.Duration(config.RefreshInterval) * time.Hour)
-	go refreshProfiles(ctx, relay)
+func archiveTrustedNotes(ctx context.Context) {
+	timeout := time.After(time.Second * 3)
+	go refreshProfiles(ctx)
 
 	filters := []nostr.Filter{{
 		Kinds: []int{
@@ -378,9 +381,9 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 					continue
 				}
 
-				relay.AddEvent(ctx, ev.Event)
+				wdb.Publish(ctx, *ev.Event)
 				trustedNotes++
-				//log.Println("📦 archived note: ", ev.Event.ID)
+				// log.Println("📦 archived note: ", ev.Event.ID)
 			} else {
 				untrustedNotes++
 			}
