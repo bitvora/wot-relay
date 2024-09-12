@@ -12,6 +12,9 @@ jobs:
   make-release:
     runs-on: ubuntu-latest
     steps:
+      - name: Install build-essential and LMDB development files
+        run: sudo apt-get update && sudo apt-get install -y build-essential liblmdb-dev
+
       - name: Create Release
         uses: actions/create-release@latest
         env:
@@ -38,6 +41,10 @@ jobs:
             goos: darwin
     steps:
       - uses: actions/checkout@v3
+
+      - name: Install build-essential and LMDB development files
+        run: sudo apt-get update && sudo apt-get install -y build-essential liblmdb-dev
+
       - uses: wangyoucao577/go-release-action@v1.40
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
