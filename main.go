@@ -106,7 +106,6 @@ func main() {
 		return true, "you are not in the web of trust"
 	})
 
-	mu.Lock()
 	seedRelays = []string{
 		"wss://nos.lol",
 		"wss://nostr.mom",
@@ -123,7 +122,6 @@ func main() {
 		"wss://nostrue.com",
 		"wss://relay.siamstr.com",
 	}
-	mu.Unlock()
 
 	go refreshTrustNetwork(relay, ctx)
 
@@ -192,9 +190,6 @@ func getEnv(key string) string {
 }
 
 func updateTrustNetworkFilter() {
-	trustNetworkFilterMu.Lock()
-	defer trustNetworkFilterMu.Unlock()
-
 	nKeys := uint64(len(trustNetwork))
 	log.Println("🌐 updating trust network filter with", nKeys, "keys")
 	trustNetworkFilter = blobloom.NewOptimized(blobloom.Config{
@@ -207,9 +202,6 @@ func updateTrustNetworkFilter() {
 }
 
 func refreshProfiles(ctx context.Context, relay *khatru.Relay) {
-	mu.Lock()
-	defer mu.Unlock()
-
 	for i := 0; i < len(trustNetwork); i += 200 {
 		timeout, cancel := context.WithTimeout(ctx, 4*time.Second)
 		defer cancel()
@@ -226,8 +218,8 @@ func refreshProfiles(ctx context.Context, relay *khatru.Relay) {
 
 		for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
 			relay.AddEvent(ctx, ev.Event)
-			log.Println("👤 profile updated: ", ev.Event.PubKey)
 		}
+		log.Println("👤  profiles fetched:", end)
 	}
 }
 
@@ -293,8 +285,6 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 }
 
 func appendRelay(relay string) {
-	mu.Lock()
-	defer mu.Unlock()
 
 	for _, r := range relays {
 		if r == relay {
@@ -305,9 +295,6 @@ func appendRelay(relay string) {
 }
 
 func appendPubkey(pubkey string) {
-	mu.Lock()
-	defer mu.Unlock()
-
 	for _, pk := range trustNetwork {
 		if pk == pubkey {
 			return
@@ -322,9 +309,6 @@ func appendPubkey(pubkey string) {
 }
 
 func appendOneHopNetwork(pubkey string) {
-	mu.Lock()
-	defer mu.Unlock()
-
 	for _, pk := range oneHopNetwork {
 		if pk == pubkey {
 			return
@@ -362,9 +346,6 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	var trustedNotes uint64
 	var untrustedNotes uint64
 
-	trustNetworkFilterMu.Lock()
-	defer trustNetworkFilterMu.Unlock()
-
 	eventChan := pool.SubMany(ctx, seedRelays, filters)
 
 	for {
@@ -392,7 +373,6 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 				}
 
 				relay.AddEvent(ctx, ev.Event)
-				log.Println("📦 archived note: ", ev.Event.ID)
 				trustedNotes++
 			} else {
 				untrustedNotes++
