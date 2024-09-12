@@ -9,13 +9,10 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
-	"github.com/cespare/xxhash"
 	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/khatru/policies"
-	"github.com/greatroar/blobloom"
 	"github.com/joho/godotenv"
 	"github.com/nbd-wtf/go-nostr"
 )
@@ -35,12 +32,10 @@ var pool *nostr.SimplePool
 var relays []string
 var config Config
 var trustNetwork []string
-var mu sync.Mutex
-var trustNetworkFilter *blobloom.Filter
-var trustNetworkFilterMu sync.Mutex
 var seedRelays []string
 var booted bool
 var oneHopNetwork []string
+var trustNetworkMap map[string]bool
 
 func main() {
 	nostr.InfoLogger = log.New(io.Discard, "", 0)
@@ -190,14 +185,12 @@ func getEnv(key string) string {
 }
 
 func updateTrustNetworkFilter() {
+	trustNetworkMap = make(map[string]bool)
+
 	nKeys := uint64(len(trustNetwork))
-	log.Println("🌐 updating trust network filter with", nKeys, "keys")
-	trustNetworkFilter = blobloom.NewOptimized(blobloom.Config{
-		Capacity: nKeys,
-		FPRate:   1e-4,
-	})
+	log.Println("🌐 updating trust network map with", nKeys, "keys")
 	for _, trustedPubkey := range trustNetwork {
-		trustNetworkFilter.Add(xxhash.Sum64([]byte(trustedPubkey)))
+		trustNetworkMap[trustedPubkey] = true
 	}
 }
 
@@ -367,13 +360,14 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 				return
 			}
 
-			if trustNetworkFilter.Has(xxhash.Sum64([]byte(ev.Event.PubKey))) {
+			if trustNetworkMap[ev.Event.PubKey] {
 				if len(ev.Event.Tags) > 3000 {
 					continue
 				}
 
 				relay.AddEvent(ctx, ev.Event)
 				trustedNotes++
+				log.Println("📦 archived note: ", ev.Event.ID)
 			} else {
 				untrustedNotes++
 			}
