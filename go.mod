@@ -17,7 +17,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fasthttp/websocket v1.5.7 // indirect
-	github.com/fiatjaf/eventstore v0.8.1 // indirect
+	github.com/fiatjaf/eventstore v0.8.2 // indirect
 	github.com/fiatjaf/khatru v0.8.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
@@ -33,7 +33,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/nbd-wtf/go-nostr v0.34.15 // indirect
+	github.com/nbd-wtf/go-nostr v0.35.1-0.20240912000534-64c6057c08ec // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.4.0 // indirect
 	github.com/rs/cors v1.7.0 // indirect
