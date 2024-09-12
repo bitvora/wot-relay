@@ -14,6 +14,7 @@ import (
 
 	"github.com/cespare/xxhash"
 	"github.com/fiatjaf/khatru"
+	"github.com/fiatjaf/khatru/policies"
 	"github.com/greatroar/blobloom"
 	"github.com/joho/godotenv"
 	"github.com/nbd-wtf/go-nostr"
@@ -77,6 +78,8 @@ func main() {
 	if err := db.Init(); err != nil {
 		panic(err)
 	}
+
+	policies.ApplySaneDefaults(relay)
 
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 	relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)

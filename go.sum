@@ -53,6 +53,10 @@ github.com/fiatjaf/eventstore v0.8.2 h1:nCa3UuJNV5Y5t+SDoPQe7PBmKJ6dhm9TQ/WyR4SC
 github.com/fiatjaf/eventstore v0.8.2/go.mod h1:ck3RxufitHUBjID1RLcRxfX+NMywQzMsdfNpSt6m+9U=
 github.com/fiatjaf/khatru v0.8.0 h1:hofUi4qbSqkJiKD4rC9EyNdi9obzBvp3ykJOBxuu/h8=
 github.com/fiatjaf/khatru v0.8.0/go.mod h1:jRmqbbIbEH+y0unt3wMUBwqY/btVussqx5SmBoGhXtg=
+github.com/fiatjaf/khatru v0.8.1 h1:BWAZqwuT0272ZlyzPkuqAA0eGBOs5G3u0Dn1tlWrm6Q=
+github.com/fiatjaf/khatru v0.8.1/go.mod h1:jRmqbbIbEH+y0unt3wMUBwqY/btVussqx5SmBoGhXtg=
+github.com/fiatjaf/khatru v0.8.2-0.20240912020201-6d827ac89ae6 h1:Ad1Z2+CM0zbp405rcZDaaXMemLDKZkm/Z+f+RrjmXdU=
+github.com/fiatjaf/khatru v0.8.2-0.20240912020201-6d827ac89ae6/go.mod h1:jRmqbbIbEH+y0unt3wMUBwqY/btVussqx5SmBoGhXtg=
 github.com/gobwas/httphead v0.1.0 h1:exrUm0f4YX0L7EBwZHuCF4GDp8aJfVeBrlLQrs6NqWU=
 github.com/gobwas/httphead v0.1.0/go.mod h1:O/RXo79gxV8G+RqlR/otEwx4Q36zl9rqC5u12GKvMCM=
 github.com/gobwas/pool v0.2.1 h1:xfeeEhW7pwmX8nuLVlqbzVc7udMDrwetjEv+TZIz1og=

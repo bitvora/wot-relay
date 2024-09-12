@@ -18,7 +18,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fasthttp/websocket v1.5.7 // indirect
 	github.com/fiatjaf/eventstore v0.8.2 // indirect
-	github.com/fiatjaf/khatru v0.8.0 // indirect
+	github.com/fiatjaf/khatru v0.8.2-0.20240912020201-6d827ac89ae6 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
