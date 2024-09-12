@@ -26,6 +26,7 @@ type Config struct {
 	IndexPath        string
 	StaticPath       string
 	RefreshInterval  int
+	MinimumFollowers int
 }
 
 var pool *nostr.SimplePool
@@ -36,6 +37,7 @@ var seedRelays []string
 var booted bool
 var oneHopNetwork []string
 var trustNetworkMap map[string]bool
+var pubkeyFollowerCount = make(map[string]int)
 
 func main() {
 	nostr.InfoLogger = log.New(io.Discard, "", 0)
@@ -162,6 +164,12 @@ func LoadConfig() Config {
 	refreshInterval, _ := strconv.Atoi(os.Getenv("REFRESH_INTERVAL_HOURS"))
 	log.Println("🔄 refresh interval set to", refreshInterval, "hours")
 
+	if os.Getenv("MINIMUM_FOLLOWERS") == "" {
+		os.Setenv("MINIMUM_FOLLOWERS", "1")
+	}
+
+	minimumFollowers, _ := strconv.Atoi(os.Getenv("MINIMUM_FOLLOWERS"))
+
 	config := Config{
 		RelayName:        getEnv("RELAY_NAME"),
 		RelayPubkey:      getEnv("RELAY_PUBKEY"),
@@ -171,6 +179,7 @@ func LoadConfig() Config {
 		IndexPath:        getEnv("INDEX_PATH"),
 		StaticPath:       getEnv("STATIC_PATH"),
 		RefreshInterval:  refreshInterval,
+		MinimumFollowers: minimumFollowers,
 	}
 
 	return config
@@ -187,11 +196,15 @@ func getEnv(key string) string {
 func updateTrustNetworkFilter() {
 	trustNetworkMap = make(map[string]bool)
 
-	nKeys := uint64(len(trustNetwork))
-	log.Println("🌐 updating trust network map with", nKeys, "keys")
-	for _, trustedPubkey := range trustNetwork {
-		trustNetworkMap[trustedPubkey] = true
+	log.Println("🌐 updating trust network map")
+	for pubkey, count := range pubkeyFollowerCount {
+		if count >= config.MinimumFollowers {
+			trustNetworkMap[pubkey] = true
+			appendPubkey(pubkey)
+		}
 	}
+
+	log.Println("🌐 trust network map updated with", len(trustNetwork), "keys")
 }
 
 func refreshProfiles(ctx context.Context, relay *khatru.Relay) {
@@ -230,6 +243,7 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 		log.Println("🔍 fetching owner's follows")
 		for ev := range pool.SubManyEose(timeoutCtx, seedRelays, filters) {
 			for _, contact := range ev.Event.Tags.GetAll([]string{"p"}) {
+				pubkeyFollowerCount[contact[1]]++ // Increment follower count for the pubkey
 				appendOneHopNetwork(contact[1])
 			}
 		}
@@ -251,9 +265,7 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 
 			for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
 				for _, contact := range ev.Event.Tags.GetAll([]string{"p"}) {
-					if len(contact) > 1 {
-						appendPubkey(contact[1])
-					}
+					pubkeyFollowerCount[contact[1]]++ // Increment follower count for the pubkey
 				}
 
 				for _, relay := range ev.Event.Tags.GetAll([]string{"r"}) {
@@ -264,9 +276,8 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 					relay.AddEvent(ctx, ev.Event)
 				}
 			}
-
 		}
-		log.Println("🫂  network size:", len(trustNetwork))
+		log.Println("🫂  total network size:", len(pubkeyFollowerCount))
 		log.Println("🔗 relays discovered:", len(relays))
 	}
 
@@ -355,7 +366,7 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 
 		case ev, ok := <-eventChan:
 			if !ok {
-				log.Println("📦 SubMany channel closed")
+				log.Println("📦 subscription channel closed")
 				log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
 				return
 			}
@@ -367,7 +378,7 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 
 				relay.AddEvent(ctx, ev.Event)
 				trustedNotes++
-				log.Println("📦 archived note: ", ev.Event.ID)
+				//log.Println("📦 archived note: ", ev.Event.ID)
 			} else {
 				untrustedNotes++
 			}
