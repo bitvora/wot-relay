@@ -13,6 +13,8 @@ Don't want to run the relay, just want to connect to some? Here are some availab
 - [wss://wot.girino.org](https://wot.girino.org)
 - [wss://relay.lnau.net](https://relay.lnau.net)
 - [wss://wot.siamstr.com](https://wot.siamstr.com)
+- [wss://wot.sudocarlos.com](https://wot.sudocarlos.com)
+- [wss://relay.otherstuff.fyi](https://relay.otherstuff.fyi)
 
 ## Prerequisites
 
