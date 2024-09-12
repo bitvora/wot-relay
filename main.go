@@ -314,8 +314,7 @@ func appendOneHopNetwork(pubkey string) {
 }
 
 func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
-	timeout, cancel := context.WithTimeout(ctx, time.Duration(config.RefreshInterval)*time.Hour)
-	defer cancel()
+	timeout := time.After(time.Duration(config.RefreshInterval) * time.Hour)
 
 	filters := []nostr.Filter{{
 		Kinds: []int{
@@ -336,15 +335,31 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 	log.Println("📦 archiving trusted notes...")
 	var trustedNotes uint64
 	var untrustedNotes uint64
+
 	trustNetworkFilterMu.Lock()
 	defer trustNetworkFilterMu.Unlock()
 
-	for ev := range pool.SubMany(timeout, seedRelays, filters) {
+	eventChan := pool.SubMany(ctx, seedRelays, filters)
+
+	for {
 		select {
-		case <-ctx.Done():
+		case <-timeout:
 			log.Println("⏰ Archive process terminated due to timeout")
+			log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
 			return
-		default:
+
+		case <-ctx.Done():
+			log.Println("⏰ Archive process terminated due to context cancellation")
+			log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
+			return
+
+		case ev, ok := <-eventChan:
+			if !ok {
+				log.Println("📦 SubMany channel closed")
+				log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
+				return
+			}
+
 			if trustNetworkFilter.Has(xxhash.Sum64([]byte(ev.Event.PubKey))) {
 				if len(ev.Event.Tags) > 3000 {
 					continue
@@ -358,7 +373,4 @@ func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
 			}
 		}
 	}
-
-	log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
-	return
 }
