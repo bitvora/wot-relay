@@ -219,8 +219,8 @@ func refreshProfiles(ctx context.Context, relay *khatru.Relay) {
 		for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
 			relay.AddEvent(ctx, ev.Event)
 		}
-		log.Println("👤  profiles fetched:", end)
 	}
+	log.Println("👤 profiles refreshed: ", len(trustNetwork))
 }
 
 func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
