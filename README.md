@@ -50,6 +50,7 @@ DB_PATH="/home/ubuntu/wot-relay/db" # any path you would like the database to be
 INDEX_PATH="/home/ubuntu/wot-relay/templates/index.html" # path to the index.html file
 STATIC_PATH="/home/ubuntu/wot-relay/templates/static" # path to the static folder
 REFRESH_INTERVAL_HOURS=24 # interval in hours to refresh the web of trust
+MINIMUM_FOLLOWERS=3 #how many followers before they're allowed in the WoT
 ```
 
 ### 4. Build the project
