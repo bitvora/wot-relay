@@ -49,6 +49,8 @@ github.com/fiatjaf/eventstore v0.5.1 h1:tTh+JYP0RME51VY2QB2Gvtzj6QTaZAnSVhgZtrYq
 github.com/fiatjaf/eventstore v0.5.1/go.mod h1:r5yCFmrVNT2b1xUOuMnDVS3xPGh97y8IgTcLyY2rYP8=
 github.com/fiatjaf/eventstore v0.8.1 h1:51LchQNy0Hpb0YQHwqYR5pKBpfDs/KjySlWCbbz2pkc=
 github.com/fiatjaf/eventstore v0.8.1/go.mod h1:bsp0Ibv0CIcVuFcoM2AEerMWmXRhF8uWXMf+dClhuow=
+github.com/fiatjaf/eventstore v0.8.2 h1:nCa3UuJNV5Y5t+SDoPQe7PBmKJ6dhm9TQ/WyR4SCbIM=
+github.com/fiatjaf/eventstore v0.8.2/go.mod h1:ck3RxufitHUBjID1RLcRxfX+NMywQzMsdfNpSt6m+9U=
 github.com/fiatjaf/khatru v0.8.0 h1:hofUi4qbSqkJiKD4rC9EyNdi9obzBvp3ykJOBxuu/h8=
 github.com/fiatjaf/khatru v0.8.0/go.mod h1:jRmqbbIbEH+y0unt3wMUBwqY/btVussqx5SmBoGhXtg=
 github.com/gobwas/httphead v0.1.0 h1:exrUm0f4YX0L7EBwZHuCF4GDp8aJfVeBrlLQrs6NqWU=
@@ -110,6 +112,8 @@ github.com/nbd-wtf/go-nostr v0.34.14 h1:o4n2LkuAtdIjNYJ23sFbcx68UXLnji4j8hYR1Sd2
 github.com/nbd-wtf/go-nostr v0.34.14/go.mod h1:NZQkxl96ggbO8rvDpVjcsojJqKTPwqhP4i82O7K5DJs=
 github.com/nbd-wtf/go-nostr v0.34.15 h1:InUaCM3Mw20U3hyoZBpY39LELHBmMa4bK81iGCY5+W4=
 github.com/nbd-wtf/go-nostr v0.34.15/go.mod h1:NZQkxl96ggbO8rvDpVjcsojJqKTPwqhP4i82O7K5DJs=
+github.com/nbd-wtf/go-nostr v0.35.1-0.20240912000534-64c6057c08ec h1:83Ce39kWnvq6VgfMKSMtcbwBcSmnab2VDX+tlKWZuqo=
+github.com/nbd-wtf/go-nostr v0.35.1-0.20240912000534-64c6057c08ec/go.mod h1:RNovrTNC8aQNqkwfdX6y4thxHN3zueewqyZoSiDBaQY=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
