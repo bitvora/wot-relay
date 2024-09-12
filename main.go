@@ -78,7 +78,7 @@ func main() {
 
 	relay.RejectEvent = append(relay.RejectEvent,
 		policies.RejectEventsWithBase64Media,
-		policies.EventIPRateLimiter(5, time.Minute*3, 15),
+		policies.EventIPRateLimiter(5, time.Minute*2, 30),
 	)
 
 	relay.RejectFilter = append(relay.RejectFilter,
@@ -88,7 +88,7 @@ func main() {
 	)
 
 	relay.RejectConnection = append(relay.RejectConnection,
-		policies.ConnectionRateLimiter(3, time.Minute*1, 20),
+		policies.ConnectionRateLimiter(10, time.Minute*1, 30),
 	)
 
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
