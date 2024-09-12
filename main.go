@@ -79,7 +79,20 @@ func main() {
 		panic(err)
 	}
 
-	policies.ApplySaneDefaults(relay)
+	relay.RejectEvent = append(relay.RejectEvent,
+		policies.RejectEventsWithBase64Media,
+		policies.EventIPRateLimiter(5, time.Minute*3, 15),
+	)
+
+	relay.RejectFilter = append(relay.RejectFilter,
+		policies.NoEmptyFilters,
+		policies.NoComplexFilters,
+		policies.FilterIPRateLimiter(50, time.Minute, 250),
+	)
+
+	relay.RejectConnection = append(relay.RejectConnection,
+		policies.ConnectionRateLimiter(3, time.Minute*5, 9),
+	)
 
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 	relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)
