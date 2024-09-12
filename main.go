@@ -87,7 +87,7 @@ func main() {
 	relay.RejectFilter = append(relay.RejectFilter,
 		policies.NoEmptyFilters,
 		policies.NoComplexFilters,
-		policies.FilterIPRateLimiter(50, time.Minute, 250),
+		// policies.FilterIPRateLimiter(50, time.Minute, 250),
 	)
 
 	relay.RejectConnection = append(relay.RejectConnection,
