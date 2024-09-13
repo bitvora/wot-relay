@@ -364,9 +364,7 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 			wdb.Publish(ctx, *ev.Event)
 			relay.BroadcastEvent(ev.Event)
 			trustedNotes++
-			log.Println("📦 archived note: ", ev.ID)
 		} else {
-			log.Println("🗑️  discarded note: ", ev.ID)
 			untrustedNotes++
 		}
 	}
