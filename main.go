@@ -333,8 +333,7 @@ func appendOneHopNetwork(pubkey string) {
 }
 
 func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
-	//timeout, cancel := context.WithTimeout(ctx, time.Duration(config.RefreshInterval)*time.Hour)
-	timeout, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	timeout, cancel := context.WithTimeout(ctx, time.Duration(config.RefreshInterval)*time.Hour)
 	defer cancel()
 	go refreshProfiles(ctx)
 
