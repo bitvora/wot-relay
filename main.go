@@ -333,7 +333,9 @@ func appendOneHopNetwork(pubkey string) {
 }
 
 func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
-	timeout := time.After(time.Duration(config.RefreshInterval) * time.Hour)
+	//timeout, cancel := context.WithTimeout(ctx, time.Duration(config.RefreshInterval)*time.Hour)
+	timeout, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
 	go refreshProfiles(ctx)
 
 	filters := []nostr.Filter{{
@@ -354,50 +356,21 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 
 	log.Println("📦 archiving trusted notes...")
 
-	eventChan := pool.SubMany(ctx, seedRelays, filters)
-
-	for {
-		select {
-		case <-timeout:
-			log.Println("⏰ Archive process terminated due to timeout")
-			log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
-			trustedNotes = 0
-			untrustedNotes = 0
-			return
-
-		case <-ctx.Done():
-			log.Println("⏰ Archive process terminated due to context cancellation")
-			log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
-			trustedNotes = 0
-			untrustedNotes = 0
-			return
-
-		case ev, ok := <-eventChan:
-			if !ok {
-				log.Println("📦 subscription channel closed")
-				log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
-				trustedNotes = 0
-				untrustedNotes = 0
-				return
+	for ev := range pool.SubMany(timeout, seedRelays, filters) {
+		if trustNetworkMap[ev.PubKey] {
+			if len(ev.Tags) > 3000 {
+				continue
 			}
 
-			go processEvent(ctx, ev.Event, relay)
+			wdb.Publish(ctx, *ev.Event)
+			relay.BroadcastEvent(ev.Event)
+			trustedNotes++
+			log.Println("📦 archived note: ", ev.ID)
+		} else {
+			log.Println("🗑️  discarded note: ", ev.ID)
+			untrustedNotes++
 		}
 	}
-}
 
-func processEvent(ctx context.Context, ev *nostr.Event, relay *khatru.Relay) {
-	if trustNetworkMap[ev.PubKey] {
-		if len(ev.Tags) > 3000 {
-			return
-		}
-
-		wdb.Publish(ctx, *ev)
-		relay.BroadcastEvent(ev)
-		trustedNotes++
-		log.Println("📦 archived note: ", ev.ID)
-	} else {
-		log.Println("📦 discarded note: ", ev.ID)
-		untrustedNotes++
-	}
+	log.Println("📦 archived", trustedNotes, "trusted notes and discarded ", untrustedNotes, "untrusted notes")
 }
