@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/khatru/policies"
 	"github.com/joho/godotenv"
@@ -30,6 +31,7 @@ type Config struct {
 }
 
 var pool *nostr.SimplePool
+var wdb nostr.RelayStore
 var relays []string
 var config Config
 var trustNetwork []string
@@ -77,6 +79,7 @@ func main() {
 	if err := db.Init(); err != nil {
 		panic(err)
 	}
+	wdb = eventstore.RelayWrapper{Store: &db}
 
 	relay.RejectEvent = append(relay.RejectEvent,
 		policies.RejectEventsWithBase64Media,
@@ -121,7 +124,7 @@ func main() {
 		"wss://relay.siamstr.com",
 	}
 
-	go refreshTrustNetwork(relay, ctx)
+	go refreshTrustNetwork(ctx, relay)
 
 	mux := relay.Router()
 	static := http.FileServer(http.Dir(config.StaticPath))
@@ -208,7 +211,7 @@ func updateTrustNetworkFilter() {
 	log.Println("🌐 trust network map updated with", len(trustNetwork), "keys")
 }
 
-func refreshProfiles(ctx context.Context, relay *khatru.Relay) {
+func refreshProfiles(ctx context.Context) {
 	for i := 0; i < len(trustNetwork); i += 200 {
 		timeout, cancel := context.WithTimeout(ctx, 4*time.Second)
 		defer cancel()
@@ -224,13 +227,13 @@ func refreshProfiles(ctx context.Context, relay *khatru.Relay) {
 		}}
 
 		for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
-			relay.AddEvent(ctx, ev.Event)
+			wdb.Publish(ctx, *ev.Event)
 		}
 	}
 	log.Println("👤 profiles refreshed: ", len(trustNetwork))
 }
 
-func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
+func refreshTrustNetwork(ctx context.Context, relay *khatru.Relay) {
 
 	runTrustNetworkRefresh := func() {
 		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -276,7 +279,7 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 				}
 
 				if ev.Event.Kind == nostr.KindProfileMetadata {
-					relay.AddEvent(ctx, ev.Event)
+					wdb.Publish(ctx, *ev.Event)
 				}
 			}
 		}
@@ -287,7 +290,7 @@ func refreshTrustNetwork(relay *khatru.Relay, ctx context.Context) {
 	for {
 		runTrustNetworkRefresh()
 		updateTrustNetworkFilter()
-		archiveTrustedNotes(relay, ctx)
+		archiveTrustedNotes(ctx, relay)
 	}
 }
 
@@ -329,9 +332,9 @@ func appendOneHopNetwork(pubkey string) {
 	oneHopNetwork = append(oneHopNetwork, pubkey)
 }
 
-func archiveTrustedNotes(relay *khatru.Relay, ctx context.Context) {
+func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 	timeout := time.After(time.Duration(config.RefreshInterval) * time.Hour)
-	go refreshProfiles(ctx, relay)
+	go refreshProfiles(ctx)
 
 	filters := []nostr.Filter{{
 		Kinds: []int{
@@ -389,7 +392,7 @@ func processEvent(ctx context.Context, ev *nostr.Event, relay *khatru.Relay) {
 			return
 		}
 
-		relay.AddEvent(ctx, ev)
+		wdb.Publish(ctx, *ev)
 		relay.BroadcastEvent(ev)
 		trustedNotes++
 		log.Println("📦 archived note: ", ev.ID)
