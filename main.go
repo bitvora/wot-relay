@@ -356,15 +356,15 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 	log.Println("📦 archiving trusted notes...")
 
 	for ev := range pool.SubMany(timeout, seedRelays, filters) {
-		go archiveEvent(relay, *ev.Event)
+		go archiveEvent(ctx, relay, *ev.Event)
 	}
 
 	log.Println("📦 archived", trustedNotes, "trusted notes and discarded ", untrustedNotes, "untrusted notes")
 }
 
-func archiveEvent(relay *khatru.Relay, ev nostr.Event) {
+func archiveEvent(ctx context.Context, relay *khatru.Relay, ev nostr.Event) {
 	if trustNetworkMap[ev.PubKey] {
-		wdb.Publish(context.Background(), ev)
+		wdb.Publish(ctx, ev)
 		relay.BroadcastEvent(&ev)
 		trustedNotes++
 	} else {
