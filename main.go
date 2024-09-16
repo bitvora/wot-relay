@@ -242,7 +242,9 @@ func refreshProfiles(ctx context.Context) {
 }
 
 func fetchFollowers(ctx context.Context, pubkey string, depth int) {
+	log.Printf("🔍 fetching followers for pubkey %s at depth %d", pubkey, depth)
 	if depth > config.TrustDepth {
+		log.Printf("⛔ stopping at depth %d", depth)
 		return
 	}
 
@@ -280,8 +282,10 @@ func refreshTrustNetwork(ctx context.Context, relay *khatru.Relay) {
 			for depth := 2; depth <= config.TrustDepth; depth++ {
 				log.Printf("🔍 fetching depth %d follows", depth)
 				for _, pubkey := range trustNetwork {
+					log.Printf("🔍 fetching followers of pubkey: %s", pubkey)
 					fetchFollowers(timeoutCtx, pubkey, depth)
 				}
+				log.Printf("🔍 trustNetwork now has %d pubkeys after depth %d", len(trustNetwork), depth)
 			}
 		}
 
