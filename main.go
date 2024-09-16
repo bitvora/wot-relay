@@ -58,7 +58,7 @@ func main() {
 888 d888b 888  .d88b.  888          888   d88P .d88b.  888  8888b.  888  888 
 888d88888b888 d88""88b 888          8888888P" d8P  Y8b 888     "88b 888  888 
 88888P Y88888 888  888 888          888 T88b  88888888 888 .d888888 888  888 
-8888P   Y8888 Y88..88P 888          888  T88b  Y8b.     888 888  888 Y88b 888 
+8888P   Y8888 Y88..88P 888          888  T88b  Y8b.    888 888  888 Y88b 888 
 888P     Y888  "Y88P"  888          888   T88b "Y8888  888 "Y888888  "Y88888 
                                                                          888 
                                                                     Y8b d88P 
@@ -230,25 +230,47 @@ func updateTrustNetworkFilter() {
 }
 
 func refreshProfiles(ctx context.Context) {
-	for i := 0; i < len(trustNetwork[0]); i += 200 {
-		timeout, cancel := context.WithTimeout(ctx, 4*time.Second)
-		defer cancel()
-
-		end := i + 200
-		if end > len(trustNetwork[0]) {
-			end = len(trustNetwork[0])
+	for depth, pubkeysAtDepth := range trustNetwork {
+		if len(pubkeysAtDepth) == 0 {
+			log.Printf("No pubkeys to refresh at depth %d", depth+1)
+			continue
 		}
 
-		filters := []nostr.Filter{{
-			Authors: trustNetwork[0][i:end],
-			Kinds:   []int{nostr.KindProfileMetadata},
-		}}
+		for i := 0; i < len(pubkeysAtDepth); i += 200 {
+			timeout, cancel := context.WithTimeout(ctx, 4*time.Second)
+			defer cancel()
 
-		for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
-			wdb.Publish(ctx, *ev.Event)
+			end := i + 200
+			if end > len(pubkeysAtDepth) {
+				end = len(pubkeysAtDepth)
+			}
+
+			validPubkeys := []string{}
+			for _, pubkey := range pubkeysAtDepth[i:end] {
+				if isValidPubkey(pubkey) {
+					validPubkeys = append(validPubkeys, pubkey)
+				} else {
+					//log.Printf("Skipping invalid pubkey at depth %d: %s", depth+1, pubkey)
+				}
+			}
+
+			if len(validPubkeys) == 0 {
+				log.Printf("No valid pubkeys at depth %d in batch %d-%d", depth+1, i, end)
+				continue
+			}
+
+			filters := []nostr.Filter{{
+				Authors: validPubkeys,
+				Kinds:   []int{nostr.KindProfileMetadata},
+			}}
+
+			for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
+				wdb.Publish(ctx, *ev.Event)
+			}
 		}
+
+		log.Printf("👤 profiles refreshed at depth %d: %d pubkeys", depth+1, len(pubkeysAtDepth))
 	}
-	log.Println("👤 profiles refreshed: ", len(trustNetwork[0]))
 }
 
 func fetchFollowers(ctx context.Context, pubkey string, depth int) {
@@ -326,17 +348,32 @@ func appendRelay(relay string) {
 	relays = append(relays, relay)
 }
 
+func isValidPubkey(pubkey string) bool {
+    if len(pubkey) != 64 {
+        return false
+    }
+
+    for _, c := range pubkey {
+        if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+            return false
+        }
+    }
+
+    return true
+}
+
 func appendPubkey(pubkey string) {
-	if _, exists := trustNetworkMap[pubkey]; exists {
-		return
-	}
+    if _, exists := trustNetworkMap[pubkey]; exists {
+        return
+    }
 
-	if len(pubkey) != 64 {
-		return
-	}
+    if !isValidPubkey(pubkey) {
+        log.Printf("Invalid pubkey: %s", pubkey)
+        return
+    }
 
-	trustNetwork[0] = append(trustNetwork[0], pubkey)
-	trustNetworkMap[pubkey] = true
+    trustNetwork[0] = append(trustNetwork[0], pubkey)
+    trustNetworkMap[pubkey] = true
 }
 
 func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
