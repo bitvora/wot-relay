@@ -28,17 +28,18 @@ type Config struct {
 	StaticPath       string
 	RefreshInterval  int
 	MinimumFollowers int
-	TrustDepth int
+	TrustDepth       int
 }
 
 var pool *nostr.SimplePool
 var wdb nostr.RelayStore
 var relays []string
 var config Config
-var trustNetwork []string
+
+var trustNetwork [][]string
+
 var seedRelays []string
 var booted bool
-var oneHopNetwork []string
 var trustNetworkMap map[string]bool
 var pubkeyFollowerCount = make(map[string]int)
 var trustedNotes uint64
@@ -57,7 +58,7 @@ func main() {
 888 d888b 888  .d88b.  888          888   d88P .d88b.  888  8888b.  888  888 
 888d88888b888 d88""88b 888          8888888P" d8P  Y8b 888     "88b 888  888 
 88888P Y88888 888  888 888          888 T88b  88888888 888 .d888888 888  888 
-8888P   Y8888 Y88..88P 888          888  T88b Y8b.     888 888  888 Y88b 888 
+8888P   Y8888 Y88..88P 888          888  T88b  Y8b.     888 888  888 Y88b 888 
 888P     Y888  "Y88P"  888          888   T88b "Y8888  888 "Y888888  "Y88888 
                                                                          888 
                                                                     Y8b d88P 
@@ -70,10 +71,12 @@ func main() {
 	ctx := context.Background()
 	pool = nostr.NewSimplePool(ctx)
 	config = LoadConfig()
+	trustNetworkMap = make(map[string]bool)
 
 	relay.Info.Name = config.RelayName
 	relay.Info.PubKey = config.RelayPubkey
 	relay.Info.Description = config.RelayDescription
+	trustNetwork = make([][]string, config.TrustDepth)
 	appendPubkey(config.RelayPubkey)
 
 	db := getDB()
@@ -100,9 +103,11 @@ func main() {
 	relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)
 	relay.DeleteEvent = append(relay.DeleteEvent, db.DeleteEvent)
 	relay.RejectEvent = append(relay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
-		for _, pk := range trustNetwork {
-			if pk == event.PubKey {
-				return false, ""
+		for _, pubkeys := range trustNetwork {
+			for _, pk := range pubkeys {
+				if pk == event.PubKey {
+					return false, ""
+				}
 			}
 		}
 		return true, "you are not in the web of trust"
@@ -176,7 +181,7 @@ func LoadConfig() Config {
 	minimumFollowers, _ := strconv.Atoi(os.Getenv("MINIMUM_FOLLOWERS"))
 
 	if os.Getenv("TRUST_DEPTH") == "" {
-		os.Setenv("TRUST_DEPTH", "1")  // Default depth is 1 (direct followers)
+		os.Setenv("TRUST_DEPTH", "1")
 	}
 
 	trustDepth, _ := strconv.Atoi(os.Getenv("TRUST_DEPTH"))
@@ -191,7 +196,7 @@ func LoadConfig() Config {
 		StaticPath:       getEnv("STATIC_PATH"),
 		RefreshInterval:  refreshInterval,
 		MinimumFollowers: minimumFollowers,
-		TrustDepth: trustDepth,
+		TrustDepth:       trustDepth,
 	}
 
 	return config
@@ -209,28 +214,33 @@ func updateTrustNetworkFilter() {
 	trustNetworkMap = make(map[string]bool)
 
 	log.Println("🌐 updating trust network map")
-	for pubkey, count := range pubkeyFollowerCount {
-		if count >= config.MinimumFollowers {
-			trustNetworkMap[pubkey] = true
-			appendPubkey(pubkey)
+	for _, depthKeys := range trustNetwork {
+		for _, pubkey := range depthKeys {
+			if pubkeyFollowerCount[pubkey] >= config.MinimumFollowers {
+				trustNetworkMap[pubkey] = true
+			}
 		}
 	}
 
-	log.Println("🌐 trust network map updated with", len(trustNetwork), "keys")
+	totalKeys := 0
+	for _, depthKeys := range trustNetwork {
+		totalKeys += len(depthKeys)
+	}
+	log.Println("🌐 trust network map updated with", totalKeys, "total keys")
 }
 
 func refreshProfiles(ctx context.Context) {
-	for i := 0; i < len(trustNetwork); i += 200 {
+	for i := 0; i < len(trustNetwork[0]); i += 200 {
 		timeout, cancel := context.WithTimeout(ctx, 4*time.Second)
 		defer cancel()
 
 		end := i + 200
-		if end > len(trustNetwork) {
-			end = len(trustNetwork)
+		if end > len(trustNetwork[0]) {
+			end = len(trustNetwork[0])
 		}
 
 		filters := []nostr.Filter{{
-			Authors: trustNetwork[i:end],
+			Authors: trustNetwork[0][i:end],
 			Kinds:   []int{nostr.KindProfileMetadata},
 		}}
 
@@ -238,13 +248,11 @@ func refreshProfiles(ctx context.Context) {
 			wdb.Publish(ctx, *ev.Event)
 		}
 	}
-	log.Println("👤 profiles refreshed: ", len(trustNetwork))
+	log.Println("👤 profiles refreshed: ", len(trustNetwork[0]))
 }
 
 func fetchFollowers(ctx context.Context, pubkey string, depth int) {
-	log.Printf("🔍 fetching followers for pubkey %s at depth %d", pubkey, depth)
 	if depth > config.TrustDepth {
-		log.Printf("⛔ stopping at depth %d", depth)
 		return
 	}
 
@@ -259,38 +267,49 @@ func fetchFollowers(ctx context.Context, pubkey string, depth int) {
 	for ev := range pool.SubManyEose(timeoutCtx, seedRelays, filters) {
 		for _, contact := range ev.Event.Tags.GetAll([]string{"p"}) {
 			followerPubkey := contact[1]
-			pubkeyFollowerCount[followerPubkey]++
 
-			appendPubkey(followerPubkey)
-
-			if depth < config.TrustDepth {
-				appendOneHopNetwork(followerPubkey)
+			if !pubkeyExistsAtDepth(followerPubkey, depth) {
+				trustNetwork[depth-1] = append(trustNetwork[depth-1], followerPubkey)
 			}
 		}
+		log.Printf("🌐 trust network updated at depth %d with %d keys", depth, len(trustNetwork[depth-1]))
 	}
+}
+
+func pubkeyExistsAtDepth(pubkey string, depth int) bool {
+	for _, pk := range trustNetwork[depth-1] {
+		if pk == pubkey {
+			return true
+		}
+	}
+	return false
 }
 
 func refreshTrustNetwork(ctx context.Context, relay *khatru.Relay) {
 	runTrustNetworkRefresh := func() {
-		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		defer cancel()
-
 		log.Println("🔍 fetching owner's follows")
-		fetchFollowers(timeoutCtx, config.RelayPubkey, 1)
+		trustNetwork = make([][]string, config.TrustDepth)
+		trustNetwork[0] = []string{config.RelayPubkey}
 
-		if config.TrustDepth > 1 {
-			for depth := 2; depth <= config.TrustDepth; depth++ {
-				log.Printf("🔍 fetching depth %d follows", depth)
-				for _, pubkey := range trustNetwork {
-					log.Printf("🔍 fetching followers of pubkey: %s", pubkey)
-					fetchFollowers(timeoutCtx, pubkey, depth)
-				}
-				log.Printf("🔍 trustNetwork now has %d pubkeys after depth %d", len(trustNetwork), depth)
+		fetchFollowers(ctx, config.RelayPubkey, 1)
+
+		for depth := 2; depth <= config.TrustDepth; depth++ {
+			log.Printf("🔍 fetching depth %d follows", depth)
+			trustNetwork[depth-1] = []string{}
+			previousDepthPubkeys := trustNetwork[depth-2]
+
+			for _, pubkey := range previousDepthPubkeys {
+				log.Printf("👤 fetching followers for pubkey: %s at depth: %d", pubkey, depth)
+				fetchFollowers(ctx, pubkey, depth)
 			}
 		}
 
 		updateTrustNetworkFilter()
 		archiveTrustedNotes(ctx, relay)
+
+		for i, depthKeys := range trustNetwork {
+			log.Printf("Depth %d: %d pubkeys", i+1, len(depthKeys))
+		}
 	}
 
 	for {
@@ -299,7 +318,6 @@ func refreshTrustNetwork(ctx context.Context, relay *khatru.Relay) {
 }
 
 func appendRelay(relay string) {
-
 	for _, r := range relays {
 		if r == relay {
 			return
@@ -309,31 +327,16 @@ func appendRelay(relay string) {
 }
 
 func appendPubkey(pubkey string) {
-	for _, pk := range trustNetwork {
-		if pk == pubkey {
-			return
-		}
+	if _, exists := trustNetworkMap[pubkey]; exists {
+		return
 	}
 
 	if len(pubkey) != 64 {
 		return
 	}
 
-	trustNetwork = append(trustNetwork, pubkey)
-}
-
-func appendOneHopNetwork(pubkey string) {
-	for _, pk := range oneHopNetwork {
-		if pk == pubkey {
-			return
-		}
-	}
-
-	if len(pubkey) != 64 {
-		return
-	}
-
-	oneHopNetwork = append(oneHopNetwork, pubkey)
+	trustNetwork[0] = append(trustNetwork[0], pubkey)
+	trustNetworkMap[pubkey] = true
 }
 
 func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
