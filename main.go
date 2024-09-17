@@ -28,6 +28,7 @@ type Config struct {
 	StaticPath       string
 	RefreshInterval  int
 	MinimumFollowers int
+	ArchivalSync     bool
 }
 
 var pool *nostr.SimplePool
@@ -172,6 +173,10 @@ func LoadConfig() Config {
 		os.Setenv("MINIMUM_FOLLOWERS", "1")
 	}
 
+	if os.Getenv("ARCHIVAL_SYNC") == "" {
+		os.Setenv("ARCHIVAL_SYNC", "TRUE")
+	}
+
 	minimumFollowers, _ := strconv.Atoi(os.Getenv("MINIMUM_FOLLOWERS"))
 
 	config := Config{
@@ -184,6 +189,7 @@ func LoadConfig() Config {
 		StaticPath:       getEnv("STATIC_PATH"),
 		RefreshInterval:  refreshInterval,
 		MinimumFollowers: minimumFollowers,
+		ArchivalSync:     getEnv("ARCHIVAL_SYNC") == "TRUE",
 	}
 
 	return config
@@ -335,31 +341,52 @@ func appendOneHopNetwork(pubkey string) {
 func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 	timeout, cancel := context.WithTimeout(ctx, time.Duration(config.RefreshInterval)*time.Hour)
 	defer cancel()
-	go refreshProfiles(ctx)
 
-	filters := []nostr.Filter{{
-		Kinds: []int{
-			nostr.KindArticle,
-			nostr.KindDeletion,
-			nostr.KindContactList,
-			nostr.KindEncryptedDirectMessage,
-			nostr.KindMuteList,
-			nostr.KindReaction,
-			nostr.KindRelayListMetadata,
-			nostr.KindRepost,
-			nostr.KindZapRequest,
-			nostr.KindZap,
-			nostr.KindTextNote,
-		},
-	}}
+	done := make(chan struct{})
 
-	log.Println("📦 archiving trusted notes...")
+	go func() {
+		if config.ArchivalSync {
+			go refreshProfiles(ctx)
 
-	for ev := range pool.SubMany(timeout, seedRelays, filters) {
-		go archiveEvent(ctx, relay, *ev.Event)
+			filters := []nostr.Filter{{
+				Kinds: []int{
+					nostr.KindArticle,
+					nostr.KindDeletion,
+					nostr.KindContactList,
+					nostr.KindEncryptedDirectMessage,
+					nostr.KindMuteList,
+					nostr.KindReaction,
+					nostr.KindRelayListMetadata,
+					nostr.KindRepost,
+					nostr.KindZapRequest,
+					nostr.KindZap,
+					nostr.KindTextNote,
+				},
+			}}
+
+			log.Println("📦 archiving trusted notes...")
+
+			for ev := range pool.SubMany(timeout, seedRelays, filters) {
+				go archiveEvent(ctx, relay, *ev.Event)
+			}
+
+			log.Println("📦 archived", trustedNotes, "trusted notes and discarded", untrustedNotes, "untrusted notes")
+		} else {
+			log.Println("🔄 web of trust will refresh in", config.RefreshInterval, "hours")
+			select {
+			case <-timeout.Done():
+			}
+		}
+
+		close(done)
+	}()
+
+	select {
+	case <-timeout.Done():
+		log.Println("restarting process")
+	case <-done:
+		log.Println("📦 archiving process completed")
 	}
-
-	log.Println("📦 archived", trustedNotes, "trusted notes and discarded ", untrustedNotes, "untrusted notes")
 }
 
 func archiveEvent(ctx context.Context, relay *khatru.Relay, ev nostr.Event) {
