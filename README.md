@@ -53,6 +53,7 @@ INDEX_PATH="/home/ubuntu/wot-relay/templates/index.html" # path to the index.htm
 STATIC_PATH="/home/ubuntu/wot-relay/templates/static" # path to the static folder
 REFRESH_INTERVAL_HOURS=24 # interval in hours to refresh the web of trust
 MINIMUM_FOLLOWERS=3 #how many followers before they're allowed in the WoT
+ARCHIVAL_SYNC="FALSE" # set to TRUE to archive every note from every person in the WoT (not recommended)
 ```
 
 ### 4. Build the project
