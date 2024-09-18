@@ -18,6 +18,10 @@ import (
 	"github.com/nbd-wtf/go-nostr"
 )
 
+var (
+	version   string
+)
+
 type Config struct {
 	RelayName        string
 	RelayPubkey      string
@@ -74,6 +78,9 @@ func main() {
 	relay.Info.Name = config.RelayName
 	relay.Info.PubKey = config.RelayPubkey
 	relay.Info.Description = config.RelayDescription
+	relay.Info.Software = "WoT Relay"
+	relay.Info.Version = version
+
 	appendPubkey(config.RelayPubkey)
 
 	db := getDB()
