@@ -18,6 +18,10 @@ import (
 	"github.com/nbd-wtf/go-nostr"
 )
 
+var (
+	version   string
+)
+
 type Config struct {
 	RelayName        string
 	RelayPubkey      string
@@ -29,6 +33,8 @@ type Config struct {
 	RefreshInterval  int
 	MinimumFollowers int
 	ArchivalSync     bool
+	RelayContact     string
+	RelayIcon        string
 }
 
 var pool *nostr.SimplePool
@@ -73,7 +79,12 @@ func main() {
 
 	relay.Info.Name = config.RelayName
 	relay.Info.PubKey = config.RelayPubkey
+	relay.Info.Icon = config.RelayIcon
+	relay.Info.Contact = config.RelayContact
 	relay.Info.Description = config.RelayDescription
+	relay.Info.Software = "WoT Relay"
+	relay.Info.Version = version
+
 	appendPubkey(config.RelayPubkey)
 
 	db := getDB()
@@ -183,6 +194,8 @@ func LoadConfig() Config {
 		RelayName:        getEnv("RELAY_NAME"),
 		RelayPubkey:      getEnv("RELAY_PUBKEY"),
 		RelayDescription: getEnv("RELAY_DESCRIPTION"),
+		RelayContact:     getEnv("RELAY_CONTACT"),
+		RelayIcon:        getEnv("RELAY_ICON"),
 		DBPath:           getEnv("DB_PATH"),
 		RelayURL:         getEnv("RELAY_URL"),
 		IndexPath:        getEnv("INDEX_PATH"),
