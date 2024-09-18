@@ -61,7 +61,7 @@ ARCHIVAL_SYNC="FALSE" # set to TRUE to archive every note from every person in t
 Run the following command to build the relay:
 
 ```bash
-go build
+go build -ldflags "-X main.version=$(git describe --tags --always)"
 ```
 
 ### 5. Create a Systemd Service (optional)
