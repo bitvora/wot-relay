@@ -33,7 +33,8 @@ type Config struct {
 	RefreshInterval  int
 	MinimumFollowers int
 	ArchivalSync     bool
-	Contact          string
+	RelayContact     string
+	RelayIcon        string
 }
 
 var pool *nostr.SimplePool
@@ -78,7 +79,8 @@ func main() {
 
 	relay.Info.Name = config.RelayName
 	relay.Info.PubKey = config.RelayPubkey
-	relay.Info.Contact = config.Contact
+	relay.Info.Icon = config.RelayIcon
+	relay.Info.Contact = config.RelayContact
 	relay.Info.Description = config.RelayDescription
 	relay.Info.Software = "WoT Relay"
 	relay.Info.Version = version
@@ -192,6 +194,8 @@ func LoadConfig() Config {
 		RelayName:        getEnv("RELAY_NAME"),
 		RelayPubkey:      getEnv("RELAY_PUBKEY"),
 		RelayDescription: getEnv("RELAY_DESCRIPTION"),
+		RelayContact:     getEnv("RELAY_CONTACT"),
+		RelayIcon:        getEnv("RELAY_ICON"),
 		DBPath:           getEnv("DB_PATH"),
 		RelayURL:         getEnv("RELAY_URL"),
 		IndexPath:        getEnv("INDEX_PATH"),
@@ -199,7 +203,6 @@ func LoadConfig() Config {
 		RefreshInterval:  refreshInterval,
 		MinimumFollowers: minimumFollowers,
 		ArchivalSync:     getEnv("ARCHIVAL_SYNC") == "TRUE",
-		Contact:          getEnv("CONTACT"),
 	}
 
 	return config
