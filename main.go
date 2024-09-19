@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	version   string
+	version string
 )
 
 type Config struct {
@@ -82,7 +82,7 @@ func main() {
 	relay.Info.Icon = config.RelayIcon
 	relay.Info.Contact = config.RelayContact
 	relay.Info.Description = config.RelayDescription
-	relay.Info.Software = "WoT Relay"
+	relay.Info.Software = "https://github.com/bitvora/wot-relay"
 	relay.Info.Version = version
 
 	appendPubkey(config.RelayPubkey)
