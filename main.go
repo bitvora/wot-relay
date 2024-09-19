@@ -19,10 +19,11 @@ import (
 )
 
 var (
-	version   string
+	version string
 )
 
 type Config struct {
+	OwnerPubkey      string
 	RelayName        string
 	RelayPubkey      string
 	RelayDescription string
@@ -86,6 +87,7 @@ func main() {
 	relay.Info.Version = version
 
 	appendPubkey(config.RelayPubkey)
+	appendPubkey(config.OwnerPubkey)
 
 	db := getDB()
 	if err := db.Init(); err != nil {
@@ -191,6 +193,7 @@ func LoadConfig() Config {
 	minimumFollowers, _ := strconv.Atoi(os.Getenv("MINIMUM_FOLLOWERS"))
 
 	config := Config{
+		OwnerPubkey:      getEnv("OWNER_PUBKEY"),
 		RelayName:        getEnv("RELAY_NAME"),
 		RelayPubkey:      getEnv("RELAY_PUBKEY"),
 		RelayDescription: getEnv("RELAY_DESCRIPTION"),
@@ -259,7 +262,7 @@ func refreshTrustNetwork(ctx context.Context, relay *khatru.Relay) {
 		defer cancel()
 
 		filters := []nostr.Filter{{
-			Authors: []string{config.RelayPubkey},
+			Authors: []string{config.OwnerPubkey},
 			Kinds:   []int{nostr.KindContactList},
 		}}
 

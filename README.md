@@ -45,8 +45,9 @@ cp .env.example .env
 Open the `.env` file and set the necessary environment variables. Example variables include:
 
 ```bash
+OWNER_PUBKEY="xxxxxxxxxxxxxxxxxxxxxxxxxxx...xxx" # your pubkey, in hex format
 RELAY_NAME="YourRelayName"
-RELAY_PUBKEY="YourPublicKey"
+RELAY_PUBKEY="YourPublicKey" # the relay pubkey, in hex format
 RELAY_DESCRIPTION="Your relay description"
 DB_PATH="/home/ubuntu/wot-relay/db" # any path you would like the database to be saved.
 INDEX_PATH="/home/ubuntu/wot-relay/templates/index.html" # path to the index.html file
