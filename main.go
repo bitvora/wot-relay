@@ -188,6 +188,14 @@ func LoadConfig() Config {
 		os.Setenv("ARCHIVAL_SYNC", "TRUE")
 	}
 
+	if os.Getenv("RELAY_ICON") == "" {
+		os.Setenv("RELAY_ICON", "https://pfp.nostr.build/56306a93a88d4c657d8a3dfa57b55a4ed65b709eee927b5dafaab4d5330db21f.png")
+	}
+
+	if os.Getenv("RELAY_CONTACT") == "" {
+		os.Setenv("RELAY_CONTACT", getEnv("RELAY_PUBKEY"))
+	}
+
 	minimumFollowers, _ := strconv.Atoi(os.Getenv("MINIMUM_FOLLOWERS"))
 
 	config := Config{
