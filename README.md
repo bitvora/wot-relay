@@ -16,7 +16,10 @@ Don't want to run the relay, just want to connect to some? Here are some availab
 - [wss://wot.sudocarlos.com](https://wot.sudocarlos.com)
 - [wss://relay.otherstuff.fyi](https://relay.otherstuff.fyi)
 - [wss://relay.lexingtonbitcoin.org](https://relay.lexingtonbitcoin.org)
+- [wss://wot.swarmstr.com](https://wot.swarmstr.com)
+- [wss://zap.watch](https://zap.watch)
 - [wss://satsage.xyz](https://satsage.xyz)
+
 
 ## Prerequisites
 
