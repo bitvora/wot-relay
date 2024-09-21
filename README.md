@@ -138,7 +138,8 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;proxy_http_version 1.1;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
@@ -186,8 +187,8 @@ To start the project using Docker Compose, follow these steps:
    ```yaml
    volumes:
      - "./db:/app/db" # only change the left side before the colon
-     - "./templates/index.html:/app/templates/index.html" # only change the left side before the colon
-     - "./templates/static:/app/templates/static" # only change the left side before the colon
+     - "./templates/index.html:${INDEX_PATH}" # only change the left side before the colon
+     - "./templates/static:${INDEX_PATH}" # only change the left side before the colon
    ```
 
 5. Run the following command:
