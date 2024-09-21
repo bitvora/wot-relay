@@ -7,8 +7,8 @@ services:
     env_file:
       - .env
     volumes:
-      - "./db:/app/db" # only change the left side before the colon
-      - "./templates/index.html:/app/templates/index.html" # only change the left side before the colon
-      - "./templates/static:/app/templates/static" # only change the left side before the colon
+      - "./db:/app/db"
+      - "./templates/index.html:${INDEX_PATH}"
+      - "./templates/static:${STATIC_PATH}"
     ports:
       - "3334:3334"
