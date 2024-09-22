@@ -36,6 +36,7 @@ type Config struct {
 	RelayContact     string
 	RelayIcon        string
 	MaxAgeDays       int
+	ArchiveReactions bool
 }
 
 var pool *nostr.SimplePool
@@ -112,12 +113,10 @@ func main() {
 	relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)
 	relay.DeleteEvent = append(relay.DeleteEvent, db.DeleteEvent)
 	relay.RejectEvent = append(relay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
-		for _, pk := range trustNetwork {
-			if pk == event.PubKey {
-				return false, ""
-			}
+		if !trustNetworkMap[event.PubKey] {
+			return true, "you are not in the web of trust"
 		}
-		return true, "you are not in the web of trust"
+		return false, ""
 	})
 
 	seedRelays = []string{
@@ -201,6 +200,10 @@ func LoadConfig() Config {
 		os.Setenv("MAX_AGE_DAYS", "0")
 	}
 
+	if os.Getenv("ARCHIVE_REACTIONS") == "" {
+		os.Setenv("ARCHIVE_REACTIONS", "FALSE")
+	}
+
 	minimumFollowers, _ := strconv.Atoi(os.Getenv("MINIMUM_FOLLOWERS"))
 	maxAgeDays, _ := strconv.Atoi(os.Getenv("MAX_AGE_DAYS"))
 
@@ -218,6 +221,7 @@ func LoadConfig() Config {
 		MinimumFollowers: minimumFollowers,
 		ArchivalSync:     getEnv("ARCHIVAL_SYNC") == "TRUE",
 		MaxAgeDays:       maxAgeDays,
+		ArchiveReactions: getEnv("ARCHIVE_REACTIONS") == "TRUE",
 	}
 
 	return config
@@ -377,21 +381,40 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 		if config.ArchivalSync {
 			go refreshProfiles(ctx)
 
-			filters := []nostr.Filter{{
-				Kinds: []int{
-					nostr.KindArticle,
-					nostr.KindDeletion,
-					nostr.KindContactList,
-					nostr.KindEncryptedDirectMessage,
-					nostr.KindMuteList,
-					nostr.KindReaction,
-					nostr.KindRelayListMetadata,
-					nostr.KindRepost,
-					nostr.KindZapRequest,
-					nostr.KindZap,
-					nostr.KindTextNote,
-				},
-			}}
+			var filters []nostr.Filter
+			if config.ArchiveReactions {
+
+				filters = []nostr.Filter{{
+					Kinds: []int{
+						nostr.KindArticle,
+						nostr.KindDeletion,
+						nostr.KindContactList,
+						nostr.KindEncryptedDirectMessage,
+						nostr.KindMuteList,
+						nostr.KindReaction,
+						nostr.KindRelayListMetadata,
+						nostr.KindRepost,
+						nostr.KindZapRequest,
+						nostr.KindZap,
+						nostr.KindTextNote,
+					},
+				}}
+			} else {
+				filters = []nostr.Filter{{
+					Kinds: []int{
+						nostr.KindArticle,
+						nostr.KindDeletion,
+						nostr.KindContactList,
+						nostr.KindEncryptedDirectMessage,
+						nostr.KindMuteList,
+						nostr.KindRelayListMetadata,
+						nostr.KindRepost,
+						nostr.KindZapRequest,
+						nostr.KindZap,
+						nostr.KindTextNote,
+					},
+				}}
+			}
 
 			log.Println("📦 archiving trusted notes...")
 

@@ -22,7 +22,6 @@ Don't want to run the relay, just want to connect to some? Here are some availab
 - [wss://satsage.xyz](https://satsage.xyz)
 - [wss://wons.calva.dev](https://wons.calva.dev)
 
-
 ## Prerequisites
 
 - **Go**: Ensure you have Go installed on your system. You can download it from [here](https://golang.org/dl/).
@@ -61,6 +60,7 @@ STATIC_PATH="/home/ubuntu/wot-relay/templates/static" # path to the static folde
 REFRESH_INTERVAL_HOURS=24 # interval in hours to refresh the web of trust
 MINIMUM_FOLLOWERS=3 #how many followers before they're allowed in the WoT
 ARCHIVAL_SYNC="FALSE" # set to TRUE to archive every note from every person in the WoT (not recommended)
+ARCHIVE_REACTIONS="FALSE" # set to TRUE to archive every reaction from every person in the WoT (not recommended)
 ```
 
 ### 4. Build the project
@@ -73,7 +73,7 @@ go build -ldflags "-X main.version=$(git describe --tags --always)"
 
 ### 5. Create a Systemd Service (optional)
 
-To have the relay run as a service, create a systemd unit file. Here's an example:
+To have the relay run as a service, create a systemd unit file. Make sure to limit the memory usage to less than your system's total memory to prevent the relay from crashing the system.
 
 1. Create the file:
 
@@ -89,9 +89,10 @@ Description=WOT Relay Service
 After=network.target
 
 [Service]
-ExecStart=/home/ubuntu/wot-relay/wot-relay #change this to your path
-WorkingDirectory=/home/ubuntu/wot-relay #change this to your path
+ExecStart=/home/ubuntu/wot-relay/wot-relay
+WorkingDirectory=/home/ubuntu/wot-relay
 Restart=always
+MemoryLimit=2G
 
 [Install]
 WantedBy=multi-user.target
