@@ -20,6 +20,7 @@ Don't want to run the relay, just want to connect to some? Here are some availab
 - [wss://wot.swarmstr.com](https://wot.swarmstr.com)
 - [wss://zap.watch](https://zap.watch)
 - [wss://satsage.xyz](https://satsage.xyz)
+- [wss://wons.calva.dev](https://wons.calva.dev)
 
 
 ## Prerequisites
