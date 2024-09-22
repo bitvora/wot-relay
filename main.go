@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/eventstore"
+	"github.com/fiatjaf/eventstore/badger"
 	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/khatru/policies"
 	"github.com/joho/godotenv"
@@ -511,4 +512,10 @@ func deleteOldNotes(relay *khatru.Relay) error {
 
 	log.Printf("%d old (until %d) notes deleted", len(events), oldAge)
 	return nil
+}
+
+func getDB() badger.BadgerBackend {
+	return badger.BadgerBackend{
+		Path: getEnv("DB_PATH"),
+	}
 }
