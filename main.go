@@ -35,6 +35,7 @@ type Config struct {
 	ArchivalSync     bool
 	RelayContact     string
 	RelayIcon        string
+	MaxAgeDays       int
 }
 
 var pool *nostr.SimplePool
@@ -196,7 +197,12 @@ func LoadConfig() Config {
 		os.Setenv("RELAY_CONTACT", getEnv("RELAY_PUBKEY"))
 	}
 
+	if os.Getenv("MAX_AGE_DAYS") == "" {
+		os.Setenv("MAX_AGE_DAYS", "0")
+	}
+
 	minimumFollowers, _ := strconv.Atoi(os.Getenv("MINIMUM_FOLLOWERS"))
+	maxAgeDays, _ := strconv.Atoi(os.Getenv("MAX_AGE_DAYS"))
 
 	config := Config{
 		RelayName:        getEnv("RELAY_NAME"),
@@ -211,6 +217,7 @@ func LoadConfig() Config {
 		RefreshInterval:  refreshInterval,
 		MinimumFollowers: minimumFollowers,
 		ArchivalSync:     getEnv("ARCHIVAL_SYNC") == "TRUE",
+		MaxAgeDays:       maxAgeDays,
 	}
 
 	return config
@@ -317,6 +324,7 @@ func refreshTrustNetwork(ctx context.Context, relay *khatru.Relay) {
 	for {
 		runTrustNetworkRefresh()
 		updateTrustNetworkFilter()
+		deleteOldNotes(relay)
 		archiveTrustedNotes(ctx, relay)
 	}
 }
@@ -418,4 +426,66 @@ func archiveEvent(ctx context.Context, relay *khatru.Relay, ev nostr.Event) {
 	} else {
 		untrustedNotes++
 	}
+}
+
+func deleteOldNotes(relay *khatru.Relay) error {
+	ctx := context.TODO()
+
+	if config.MaxAgeDays <= 0 {
+		log.Printf("MAX_AGE_DAYS disabled")
+		return nil
+	}
+
+	maxAgeSecs := nostr.Timestamp(config.MaxAgeDays * 86400)
+	oldAge := nostr.Now() - maxAgeSecs
+	if oldAge <= 0 {
+		log.Printf("MAX_AGE_DAYS too large")
+		return nil
+	}
+
+	filter := nostr.Filter{
+		Until: &oldAge,
+		Kinds: []int{
+			nostr.KindArticle,
+			nostr.KindDeletion,
+			nostr.KindContactList,
+			nostr.KindEncryptedDirectMessage,
+			nostr.KindMuteList,
+			nostr.KindReaction,
+			nostr.KindRelayListMetadata,
+			nostr.KindRepost,
+			nostr.KindZapRequest,
+			nostr.KindZap,
+			nostr.KindTextNote,
+		},
+	}
+
+	ch, err := relay.QueryEvents[0](ctx, filter)
+	if err != nil {
+		log.Printf("query error %s", err)
+		return err
+	}
+
+	events := make([]*nostr.Event, 0)
+
+	for evt := range ch {
+		events = append(events, evt)
+	}
+
+	if len(events) < 1 {
+		log.Println("0 old notes found")
+		return nil
+	}
+
+	for num_evt, del_evt := range events {
+		for _, del := range relay.DeleteEvent {
+			if err := del(ctx, del_evt); err != nil {
+				log.Printf("error deleting note %d of %d. event id: %s", num_evt, len(events), del_evt.ID)
+				return err
+			}
+		}
+	}
+
+	log.Printf("%d old (until %d) notes deleted", len(events), oldAge)
+	return nil
 }
