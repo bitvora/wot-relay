@@ -12,3 +12,5 @@ services:
       - "./templates/static:${STATIC_PATH}"
     ports:
       - "3334:3334"
+    restart: unless-stopped
+    init: true
