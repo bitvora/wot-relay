@@ -12,6 +12,8 @@ services:
       - "./templates/static:${STATIC_PATH}"
     ports:
       - "3334"
+    restart: unless-stopped
+    init: true
 
   tor:
     image: lncm/tor:0.4.7.9@sha256:86c2fe9d9099e6376798979110b8b9a3ee5d8adec27289ac4a5ee892514ffe92
@@ -23,3 +25,4 @@ services:
       - ./tor/data:/var/lib/tor
     restart: on-failure
     stop_grace_period: 10m30s
+    init: true
