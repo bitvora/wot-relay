@@ -22,6 +22,7 @@ Don't want to run the relay, just want to connect to some? Here are some availab
 - [wss://satsage.xyz](https://satsage.xyz)
 - [wss://wons.calva.dev](https://wons.calva.dev)
 - [wss://wot.zacoos.com](https://wot.zacoos.com)
+- [wss://wot.shaving.kiwi](https://wot.shaving.kiwi)
 
 ## Prerequisites
 
@@ -53,7 +54,7 @@ Open the `.env` file and set the necessary environment variables. Example variab
 
 ```bash
 RELAY_NAME="YourRelayName"
-RELAY_PUBKEY="YourPublicKey"
+RELAY_PUBKEY="YourPublicKey" # the owner's hexkey, not npub. Convert npub to hex here: https://nostrcheck.me/converter/
 RELAY_DESCRIPTION="Your relay description"
 DB_PATH="/home/ubuntu/wot-relay/db" # any path you would like the database to be saved.
 INDEX_PATH="/home/ubuntu/wot-relay/templates/index.html" # path to the index.html file
