@@ -21,6 +21,7 @@ Don't want to run the relay, just want to connect to some? Here are some availab
 - [wss://zap.watch](https://zap.watch)
 - [wss://satsage.xyz](https://satsage.xyz)
 - [wss://wons.calva.dev](https://wons.calva.dev)
+- [wss://wot.zacoos.com](https://wot.zacoos.com)
 
 ## Prerequisites
 
