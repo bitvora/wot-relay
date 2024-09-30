@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.1
 
 require (
-	github.com/fiatjaf/eventstore v0.10.2-0.20240930205256-591734679cc4
+	github.com/fiatjaf/eventstore v0.10.1
 	github.com/fiatjaf/khatru v0.8.2-0.20240913013357-18fc0dc1dd58
 	github.com/joho/godotenv v1.5.1
 	github.com/nbd-wtf/go-nostr v0.38.1
@@ -22,7 +22,6 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fasthttp/websocket v1.5.7 // indirect
-	github.com/fiatjaf/merge-sorted-slices v0.0.5 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect

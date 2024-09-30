@@ -34,12 +34,10 @@ github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1m
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fasthttp/websocket v1.5.7 h1:0a6o2OfeATvtGgoMKleURhLT6JqWPg7fYfWnH4KHau4=
 github.com/fasthttp/websocket v1.5.7/go.mod h1:bC4fxSono9czeXHQUVKxsC0sNjbm7lPJR04GDFqClfU=
-github.com/fiatjaf/eventstore v0.10.2-0.20240930205256-591734679cc4 h1:AIEs4YIpsRVXZ2s/u6FC5m2Tsu/DB+6KG5mAdY+X3yE=
-github.com/fiatjaf/eventstore v0.10.2-0.20240930205256-591734679cc4/go.mod h1:y09rOcMyKURaV07sHoC1Dj68ZLqk7zabsPgduEUgf84=
+github.com/fiatjaf/eventstore v0.10.1 h1:zgXrRhpyjzX0Eub4T6zkMZ60zRnIPJqy/Ipfx5h+yWo=
+github.com/fiatjaf/eventstore v0.10.1/go.mod h1:h5CdLSF7mEQ7/rWpEABTRIrNuFoSwdQDi/nZkW/vVFU=
 github.com/fiatjaf/khatru v0.8.2-0.20240913013357-18fc0dc1dd58 h1:F5Cy44IzxeIhzY8bf34rnORw0pYn6ZT/pIuyMO02Kjs=
 github.com/fiatjaf/khatru v0.8.2-0.20240913013357-18fc0dc1dd58/go.mod h1:jRmqbbIbEH+y0unt3wMUBwqY/btVussqx5SmBoGhXtg=
-github.com/fiatjaf/merge-sorted-slices v0.0.5 h1:Mmt3TdONTnhp3F4YHN/Uta8tFOm5RhBhdzuLEucStAw=
-github.com/fiatjaf/merge-sorted-slices v0.0.5/go.mod h1:k7H3l+OhO2m/PA99FdBjF29Z0TAwRClgKA9PvoT6obY=
 github.com/gobwas/httphead v0.1.0 h1:exrUm0f4YX0L7EBwZHuCF4GDp8aJfVeBrlLQrs6NqWU=
 github.com/gobwas/httphead v0.1.0/go.mod h1:O/RXo79gxV8G+RqlR/otEwx4Q36zl9rqC5u12GKvMCM=
 github.com/gobwas/pool v0.2.1 h1:xfeeEhW7pwmX8nuLVlqbzVc7udMDrwetjEv+TZIz1og=
