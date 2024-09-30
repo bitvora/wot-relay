@@ -280,7 +280,7 @@ func refreshTrustNetwork(ctx context.Context, relay *khatru.Relay) {
 
 		filters := []nostr.Filter{{
 			Authors: []string{config.RelayPubkey},
-			Kinds:   []int{nostr.KindContactList},
+			Kinds:   []int{nostr.KindFollowList},
 		}}
 
 		log.Println("🔍 fetching owner's follows")
@@ -303,7 +303,7 @@ func refreshTrustNetwork(ctx context.Context, relay *khatru.Relay) {
 
 			filters = []nostr.Filter{{
 				Authors: oneHopNetwork[i:end],
-				Kinds:   []int{nostr.KindContactList, nostr.KindRelayListMetadata, nostr.KindProfileMetadata},
+				Kinds:   []int{nostr.KindFollowList, nostr.KindRelayListMetadata, nostr.KindProfileMetadata},
 			}}
 
 			for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
@@ -389,7 +389,7 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 					Kinds: []int{
 						nostr.KindArticle,
 						nostr.KindDeletion,
-						nostr.KindContactList,
+						nostr.KindFollowList,
 						nostr.KindEncryptedDirectMessage,
 						nostr.KindMuteList,
 						nostr.KindReaction,
@@ -405,7 +405,7 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 					Kinds: []int{
 						nostr.KindArticle,
 						nostr.KindDeletion,
-						nostr.KindContactList,
+						nostr.KindFollowList,
 						nostr.KindEncryptedDirectMessage,
 						nostr.KindMuteList,
 						nostr.KindRelayListMetadata,
@@ -472,7 +472,7 @@ func deleteOldNotes(relay *khatru.Relay) error {
 		Kinds: []int{
 			nostr.KindArticle,
 			nostr.KindDeletion,
-			nostr.KindContactList,
+			nostr.KindFollowList,
 			nostr.KindEncryptedDirectMessage,
 			nostr.KindMuteList,
 			nostr.KindReaction,
