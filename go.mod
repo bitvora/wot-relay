@@ -5,13 +5,14 @@ go 1.23.0
 toolchain go1.23.1
 
 require (
-	github.com/fiatjaf/eventstore v0.10.1
+	github.com/fiatjaf/eventstore v0.11.2
 	github.com/fiatjaf/khatru v0.8.2-0.20240913013357-18fc0dc1dd58
 	github.com/joho/godotenv v1.5.1
 	github.com/nbd-wtf/go-nostr v0.38.1
 )
 
 require (
+	fiatjaf.com/lib v0.2.0 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0 // indirect

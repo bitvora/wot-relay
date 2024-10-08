@@ -1,4 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
+fiatjaf.com/lib v0.2.0 h1:TgIJESbbND6GjOgGHxF5jsO6EMjuAxIzZHPo5DXYexs=
+fiatjaf.com/lib v0.2.0/go.mod h1:Ycqq3+mJ9jAWu7XjbQI1cVr+OFgnHn79dQR5oTII47g=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
@@ -36,6 +38,8 @@ github.com/fasthttp/websocket v1.5.7 h1:0a6o2OfeATvtGgoMKleURhLT6JqWPg7fYfWnH4KH
 github.com/fasthttp/websocket v1.5.7/go.mod h1:bC4fxSono9czeXHQUVKxsC0sNjbm7lPJR04GDFqClfU=
 github.com/fiatjaf/eventstore v0.10.1 h1:zgXrRhpyjzX0Eub4T6zkMZ60zRnIPJqy/Ipfx5h+yWo=
 github.com/fiatjaf/eventstore v0.10.1/go.mod h1:h5CdLSF7mEQ7/rWpEABTRIrNuFoSwdQDi/nZkW/vVFU=
+github.com/fiatjaf/eventstore v0.11.2 h1:gJTATGOk7RtDGt1qs47cLyTzko9phFyXlmWQb0zR7Lg=
+github.com/fiatjaf/eventstore v0.11.2/go.mod h1:oCHPB4TprrNjbhH2kjMKt1O48O1pk3VxAy5iZkB5Fb0=
 github.com/fiatjaf/khatru v0.8.2-0.20240913013357-18fc0dc1dd58 h1:F5Cy44IzxeIhzY8bf34rnORw0pYn6ZT/pIuyMO02Kjs=
 github.com/fiatjaf/khatru v0.8.2-0.20240913013357-18fc0dc1dd58/go.mod h1:jRmqbbIbEH+y0unt3wMUBwqY/btVussqx5SmBoGhXtg=
 github.com/gobwas/httphead v0.1.0 h1:exrUm0f4YX0L7EBwZHuCF4GDp8aJfVeBrlLQrs6NqWU=
