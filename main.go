@@ -115,8 +115,12 @@ func main() {
 	relay.DeleteEvent = append(relay.DeleteEvent, db.DeleteEvent)
 	relay.RejectEvent = append(relay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
 		if !trustNetworkMap[event.PubKey] {
-			return true, "you are not in the web of trust"
+			return true, "we are rebuilding the trust network, please try again later"
 		}
+		if event.Kind == nostr.KindEncryptedDirectMessage {
+			return true, "only gift wrapped DMs are allowed"
+		}
+
 		return false, ""
 	})
 
