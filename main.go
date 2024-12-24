@@ -46,7 +46,6 @@ var relays []string
 var config Config
 var trustNetwork []string
 var seedRelays []string
-var booted bool
 var oneHopNetwork []string
 var trustNetworkMap map[string]bool
 var pubkeyFollowerCount = make(map[string]int)
@@ -55,7 +54,6 @@ var untrustedNotes uint64
 
 func main() {
 	nostr.InfoLogger = log.New(io.Discard, "", 0)
-	booted = false
 	green := "\033[32m"
 	reset := "\033[0m"
 
@@ -86,7 +84,7 @@ func main() {
 	relay.Info.Contact = config.RelayContact
 	relay.Info.Description = config.RelayDescription
 	relay.Info.Software = "https://github.com/bitvora/wot-relay"
-	relay.Info.Version = version
+	relay.Info.Version = "v0.1.16"
 
 	appendPubkey(config.RelayPubkey)
 
@@ -123,6 +121,8 @@ func main() {
 
 		return false, ""
 	})
+
+	relay.ReplaceEvent = append(relay.ReplaceEvent, db.ReplaceEvent)
 
 	seedRelays = []string{
 		"wss://nos.lol",
