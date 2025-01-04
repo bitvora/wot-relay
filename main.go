@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fiatjaf/eventstore"
@@ -38,6 +39,7 @@ type Config struct {
 	RelayIcon        string
 	MaxAgeDays       int
 	ArchiveReactions bool
+	IgnoredPubkeys   []string
 }
 
 var pool *nostr.SimplePool
@@ -209,6 +211,11 @@ func LoadConfig() Config {
 		os.Setenv("ARCHIVE_REACTIONS", "FALSE")
 	}
 
+	ignoredPubkeys := []string{}
+	if ignoreList := os.Getenv("IGNORE_FOLLOWS_LIST"); ignoreList != "" {
+		ignoredPubkeys = splitAndTrim(ignoreList)
+	}
+
 	minimumFollowers, _ := strconv.Atoi(os.Getenv("MINIMUM_FOLLOWERS"))
 	maxAgeDays, _ := strconv.Atoi(os.Getenv("MAX_AGE_DAYS"))
 
@@ -227,6 +234,7 @@ func LoadConfig() Config {
 		ArchivalSync:     getEnv("ARCHIVAL_SYNC") == "TRUE",
 		MaxAgeDays:       maxAgeDays,
 		ArchiveReactions: getEnv("ARCHIVE_REACTIONS") == "TRUE",
+		IgnoredPubkeys:   ignoredPubkeys,
 	}
 
 	return config
@@ -290,6 +298,11 @@ func refreshTrustNetwork(ctx context.Context, relay *khatru.Relay) {
 		log.Println("🔍 fetching owner's follows")
 		for ev := range pool.SubManyEose(timeoutCtx, seedRelays, filters) {
 			for _, contact := range ev.Event.Tags.GetAll([]string{"p"}) {
+				pubkey := contact[1]
+				if isIgnored(pubkey, config.IgnoredPubkeys) {
+					fmt.Println("ignoring follows from pubkey: ", pubkey)
+					continue
+				}
 				pubkeyFollowerCount[contact[1]]++ // Increment follower count for the pubkey
 				appendOneHopNetwork(contact[1])
 			}
@@ -522,4 +535,21 @@ func getDB() badger.BadgerBackend {
 	return badger.BadgerBackend{
 		Path: getEnv("DB_PATH"),
 	}
+}
+
+func splitAndTrim(input string) []string {
+	items := strings.Split(input, ",")
+	for i, item := range items {
+		items[i] = strings.TrimSpace(item)
+	}
+	return items
+}
+
+func isIgnored(pubkey string, ignoredPubkeys []string) bool {
+	for _, ignored := range ignoredPubkeys {
+		if pubkey == ignored {
+			return true
+		}
+	}
+	return false
 }

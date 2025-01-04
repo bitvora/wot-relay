@@ -64,6 +64,7 @@ REFRESH_INTERVAL_HOURS=24 # interval in hours to refresh the web of trust
 MINIMUM_FOLLOWERS=3 #how many followers before they're allowed in the WoT
 ARCHIVAL_SYNC="FALSE" # set to TRUE to archive every note from every person in the WoT (not recommended)
 ARCHIVE_REACTIONS="FALSE" # set to TRUE to archive every reaction from every person in the WoT (not recommended)
+IGNORE_FOLLOWS_LIST="" # comma separated list of pubkeys who follow too many bots and ruin the WoT
 ```
 
 ### 4. Build the project
