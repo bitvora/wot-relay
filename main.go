@@ -214,6 +214,7 @@ func LoadConfig() Config {
 	ignoredPubkeys := []string{}
 	if ignoreList := os.Getenv("IGNORE_FOLLOWS_LIST"); ignoreList != "" {
 		ignoredPubkeys = splitAndTrim(ignoreList)
+		log.Printf("🚫 Loaded %d ignored pubkeys: %v", len(ignoredPubkeys), ignoredPubkeys)
 	}
 
 	minimumFollowers, _ := strconv.Atoi(os.Getenv("MINIMUM_FOLLOWERS"))
@@ -347,6 +348,7 @@ func refreshTrustNetwork(ctx context.Context, relay *khatru.Relay) {
 		runTrustNetworkRefresh()
 		updateTrustNetworkFilter()
 		deleteOldNotes(relay)
+		deleteIgnoredNotes(relay)
 		archiveTrustedNotes(ctx, relay)
 	}
 }
@@ -529,6 +531,57 @@ func deleteOldNotes(relay *khatru.Relay) error {
 
 	log.Printf("%d old (until %d) notes deleted", len(events), oldAge)
 	return nil
+}
+
+func deleteIgnoredNotes(relay *khatru.Relay) error {
+	ctx := context.TODO()
+
+	if len(config.IgnoredPubkeys) == 0 {
+		log.Printf("No ignored pubkeys configured")
+		return nil
+	}
+
+	log.Printf("🔍 Searching for notes from %d ignored pubkeys: %v", 
+		len(config.IgnoredPubkeys), config.IgnoredPubkeys)
+
+	for {
+		filter := nostr.Filter{
+			Authors: config.IgnoredPubkeys,
+		}
+
+		ch, err := relay.QueryEvents[0](ctx, filter)
+		if err != nil {
+			log.Printf("query error %s", err)
+			return err
+		}
+
+		events := make([]*nostr.Event, 0)
+
+		for evt := range ch {
+			events = append(events, evt)
+		}
+
+		if len(events) == 0 {
+			log.Println("✨ All notes from ignored pubkeys have been deleted")
+			return nil
+		}
+
+		log.Printf("📝 Found %d events to delete from ignored pubkeys", len(events))
+		for _, evt := range events {
+			log.Printf("  - Event %s from pubkey %s", evt.ID, evt.PubKey)
+		}
+
+		for num_evt, del_evt := range events {
+			for _, del := range relay.DeleteEvent {
+				if err := del(ctx, del_evt); err != nil {
+					log.Printf("error deleting note %d of %d. event id: %s", num_evt, len(events), del_evt.ID)
+					return err
+				}
+			}
+		}
+
+		log.Printf("🗑️ Deleted batch of %d notes from ignored pubkeys", len(events))
+	}
 }
 
 func getDB() badger.BadgerBackend {
