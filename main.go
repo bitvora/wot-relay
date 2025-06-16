@@ -158,7 +158,7 @@ func main() {
 
 		// If we don't have a trust network yet, allow all events
 		if !hasNetwork {
-			return false, ""
+			return true, "system is booting up"
 		}
 
 		if !trusted {
@@ -191,18 +191,12 @@ func main() {
 	}
 
 	go refreshTrustNetwork(ctx, relay)
-	go monitorMemoryUsage() // Add memory monitoring
-	go monitorPerformance() // Add performance monitoring
 
 	mux := relay.Router()
 	static := http.FileServer(http.Dir(config.StaticPath))
 
 	mux.Handle("GET /static/", http.StripPrefix("/static/", static))
 	mux.Handle("GET /favicon.ico", http.StripPrefix("/", static))
-
-	// Add debug endpoints
-	mux.HandleFunc("GET /debug/stats", debugStatsHandler)
-	mux.HandleFunc("GET /debug/goroutines", debugGoroutinesHandler)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		tmpl := template.Must(template.ParseFiles(os.Getenv("INDEX_PATH")))
@@ -224,10 +218,6 @@ func main() {
 	})
 
 	log.Println("🎉 relay running on port :3334")
-	log.Println("🔍 debug endpoints available at:")
-	log.Println("   http://localhost:3334/debug/pprof/ (CPU/memory profiling)")
-	log.Println("   http://localhost:3334/debug/stats (application stats)")
-	log.Println("   http://localhost:3334/debug/goroutines (goroutine info)")
 	err := http.ListenAndServe(":3334", relay)
 	if err != nil {
 		log.Fatal(err)
@@ -352,21 +342,6 @@ func updateTrustNetworkFilter() {
 
 	log.Println("🌐 trust network map updated with", len(newTrustNetwork), "keys")
 
-	// Cleanup follower count map periodically to prevent unbounded growth
-	followerMutex.Lock()
-	if len(pubkeyFollowerCount) > config.MaxOneHopNetwork*2 {
-		log.Println("🧹 cleaning follower count map")
-		newFollowerCount := make(map[string]int)
-		for pubkey, count := range pubkeyFollowerCount {
-			if count >= config.MinimumFollowers || newTrustNetworkMap[pubkey] {
-				newFollowerCount[pubkey] = count
-			}
-		}
-		oldCount := len(pubkeyFollowerCount)
-		pubkeyFollowerCount = newFollowerCount
-		log.Printf("🧹 cleaned follower count map: %d -> %d entries", oldCount, len(newFollowerCount))
-	}
-	followerMutex.Unlock()
 }
 
 func refreshProfiles(ctx context.Context) {
@@ -387,12 +362,12 @@ func refreshProfiles(ctx context.Context) {
 			end = len(currentTrustNetwork)
 		}
 
-		filters := []nostr.Filter{{
+		filters := nostr.Filter{
 			Authors: currentTrustNetwork[i:end],
 			Kinds:   []int{nostr.KindProfileMetadata},
-		}}
+		}
 
-		for ev := range pool.SubManyEose(timeout, seedRelays, filters) {
+		for ev := range pool.FetchMany(timeout, seedRelays, filters) {
 			wdb.Publish(ctx, *ev.Event)
 		}
 
@@ -583,10 +558,10 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 		if config.ArchivalSync {
 			go refreshProfiles(ctx)
 
-			var filters []nostr.Filter
+			var filters nostr.Filter
 			since := nostr.Now()
 			if config.ArchiveReactions {
-				filters = []nostr.Filter{{
+				filters = nostr.Filter{
 					Kinds: []int{
 						nostr.KindArticle,
 						nostr.KindDeletion,
@@ -601,9 +576,9 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 						nostr.KindTextNote,
 					},
 					Since: &since,
-				}}
+				}
 			} else {
-				filters = []nostr.Filter{{
+				filters = nostr.Filter{
 					Kinds: []int{
 						nostr.KindArticle,
 						nostr.KindDeletion,
@@ -617,13 +592,13 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 						nostr.KindTextNote,
 					},
 					Since: &since,
-				}}
+				}
 			}
 
 			log.Println("📦 archiving trusted notes...")
 
 			eventCount := 0
-			for ev := range pool.SubMany(timeout, seedRelays, filters) {
+			for ev := range pool.SubscribeMany(timeout, seedRelays, filters) {
 				eventCount++
 
 				// Check GC pressure every 1000 events
@@ -682,10 +657,6 @@ func archiveEvent(ctx context.Context, relay *khatru.Relay, ev nostr.Event) {
 	if trusted {
 		wdb.Publish(ctx, ev)
 		relay.BroadcastEvent(&ev)
-		atomic.AddUint64(&trustedNotes, 1)
-		atomic.AddUint64(&archivedEvents, 1)
-	} else {
-		atomic.AddUint64(&untrustedNotes, 1)
 	}
 }
 
@@ -719,7 +690,7 @@ func deleteOldNotes(relay *khatru.Relay) error {
 			nostr.KindZap,
 			nostr.KindTextNote,
 		},
-		Limit: 1000, // Process in batches to avoid memory issues
+		Limit: 500, // Process in batches to avoid memory issues
 	}
 
 	ch, err := relay.QueryEvents[0](ctx, filter)
@@ -793,144 +764,4 @@ func isIgnored(pubkey string, ignoredPubkeys []string) bool {
 		}
 	}
 	return false
-}
-
-// Add memory monitoring
-func monitorMemoryUsage() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			var m runtime.MemStats
-			runtime.ReadMemStats(&m)
-
-			relayMutex.RLock()
-			relayCount := len(relays)
-			relayMutex.RUnlock()
-
-			trustNetworkMutex.RLock()
-			trustNetworkCount := len(trustNetwork)
-			trustNetworkMutex.RUnlock()
-
-			oneHopMutex.RLock()
-			oneHopCount := len(oneHopNetwork)
-			oneHopMutex.RUnlock()
-
-			followerMutex.RLock()
-			followerCount := len(pubkeyFollowerCount)
-			followerMutex.RUnlock()
-
-			log.Printf("📊 Memory: Alloc=%d KB, Sys=%d KB, NumGC=%d",
-				m.Alloc/1024, m.Sys/1024, m.NumGC)
-			log.Printf("📊 Data structures: Relays=%d, TrustNetwork=%d, OneHop=%d, Followers=%d",
-				relayCount, trustNetworkCount, oneHopCount, followerCount)
-		}
-	}
-}
-
-// Add performance monitoring
-func monitorPerformance() {
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
-
-	var lastGC uint32
-	var lastEvents, lastRejected, lastArchived uint64
-
-	for {
-		select {
-		case <-ticker.C:
-			var m runtime.MemStats
-			runtime.ReadMemStats(&m)
-
-			currentEvents := atomic.LoadUint64(&totalEvents)
-			currentRejected := atomic.LoadUint64(&rejectedEvents)
-			currentArchived := atomic.LoadUint64(&archivedEvents)
-
-			eventsPerMin := currentEvents - lastEvents
-			rejectedPerMin := currentRejected - lastRejected
-			archivedPerMin := currentArchived - lastArchived
-			gcPerMin := m.NumGC - lastGC
-
-			numGoroutines := runtime.NumGoroutine()
-
-			log.Printf("⚡ Performance: Events/min=%d, Rejected/min=%d, Archived/min=%d, GC/min=%d, Goroutines=%d",
-				eventsPerMin, rejectedPerMin, archivedPerMin, gcPerMin, numGoroutines)
-
-			if gcPerMin > 60 {
-				log.Printf("⚠️  HIGH GC ACTIVITY: %d garbage collections in last minute!", gcPerMin)
-			}
-
-			if numGoroutines > 1000 {
-				log.Printf("⚠️  HIGH GOROUTINE COUNT: %d goroutines active!", numGoroutines)
-			}
-
-			lastGC = m.NumGC
-			lastEvents = currentEvents
-			lastRejected = currentRejected
-			lastArchived = currentArchived
-		}
-	}
-}
-
-// Debug handlers
-func debugStatsHandler(w http.ResponseWriter, r *http.Request) {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	stats := fmt.Sprintf(`Debug Statistics:
-
-Memory:
-  Allocated: %d KB
-  System: %d KB
-  Total Allocations: %d
-  GC Cycles: %d
-  Goroutines: %d
-
-Events:
-  Total Events: %d
-  Rejected Events: %d
-  Archived Events: %d
-  Trusted Notes: %d
-  Untrusted Notes: %d
-
-Refreshes:
-  Profile Refreshes: %d
-  Network Refreshes: %d
-
-Data Structures:
-  Relays: %d
-  Trust Network: %d
-  One Hop Network: %d
-  Follower Count Map: %d
-`,
-		m.Alloc/1024,
-		m.Sys/1024,
-		m.Mallocs,
-		m.NumGC,
-		runtime.NumGoroutine(),
-		atomic.LoadUint64(&totalEvents),
-		atomic.LoadUint64(&rejectedEvents),
-		atomic.LoadUint64(&archivedEvents),
-		atomic.LoadUint64(&trustedNotes),
-		atomic.LoadUint64(&untrustedNotes),
-		atomic.LoadUint64(&profileRefreshCount),
-		atomic.LoadUint64(&networkRefreshCount),
-		len(relays),
-		len(trustNetwork),
-		len(oneHopNetwork),
-		len(pubkeyFollowerCount),
-	)
-
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(stats))
-}
-
-func debugGoroutinesHandler(w http.ResponseWriter, r *http.Request) {
-	buf := make([]byte, 1<<20) // 1MB buffer
-	stackSize := runtime.Stack(buf, true)
-
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write(buf[:stackSize])
 }
