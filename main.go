@@ -245,7 +245,7 @@ func LoadConfig() Config {
 	}
 
 	if os.Getenv("MAX_TRUST_NETWORK") == "" {
-		os.Setenv("MAX_TRUST_NETWORK", "10000")
+		os.Setenv("MAX_TRUST_NETWORK", "40000")
 	}
 
 	if os.Getenv("MAX_RELAYS") == "" {
