@@ -134,6 +134,7 @@ func main() {
 	relay.RejectFilter = append(relay.RejectFilter,
 		policies.NoEmptyFilters,
 		policies.NoComplexFilters,
+		policies.FilterIPRateLimiter(5, time.Minute*1, 30),
 	)
 
 	relay.RejectConnection = append(relay.RejectConnection,
