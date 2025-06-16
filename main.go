@@ -584,6 +584,7 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 			go refreshProfiles(ctx)
 
 			var filters []nostr.Filter
+			since := nostr.Now()
 			if config.ArchiveReactions {
 				filters = []nostr.Filter{{
 					Kinds: []int{
@@ -599,6 +600,7 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 						nostr.KindZap,
 						nostr.KindTextNote,
 					},
+					Since: &since,
 				}}
 			} else {
 				filters = []nostr.Filter{{
@@ -614,6 +616,7 @@ func archiveTrustedNotes(ctx context.Context, relay *khatru.Relay) {
 						nostr.KindZap,
 						nostr.KindTextNote,
 					},
+					Since: &since,
 				}}
 			}
 
